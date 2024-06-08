@@ -113,7 +113,11 @@ struct PouchItem {
 
 fn encode_pouch_item(memory: &mut [u8; MEMORY_SIZE], item: PouchItem, start_address: usize) {
     if start_address > MEMORY_SIZE - (POUCH_ITEM_SIZE as usize) {
-        println!("Memory out of bounds for PouchItem from: {} to {}", start_address, start_address + POUCH_ITEM_SIZE as usize);
+        println!(
+            "Memory out of bounds for PouchItem from: {} to {}",
+            start_address,
+            start_address + (POUCH_ITEM_SIZE as usize)
+        );
         return;
     }
 
@@ -205,20 +209,22 @@ fn encode_pouch_item(memory: &mut [u8; MEMORY_SIZE], item: PouchItem, start_addr
         const TOTAL_M_DATA_ITEMS: usize = 5;
 
         let m_data_bits: [u8; TOTAL_M_DATA_SIZE] = std::mem::transmute(m_data);
+        current_size = (TOTAL_M_DATA_SIZE / TOTAL_M_DATA_ITEMS) as usize;
 
-        for i in 0..(TOTAL_M_DATA_SIZE / TOTAL_M_DATA_ITEMS) as usize {
-            current_size = 4;
+        for i in 0..current_size {
             let start_index = i * current_size;
             let end_index = start_index + current_size;
 
             let item_big_endian = &m_data_bits[start_index..end_index];
 
-            let mut item_little_endian = [0; 4]; // current_size
+            let mut item_little_endian = [0; TOTAL_M_DATA_SIZE / TOTAL_M_DATA_ITEMS];
             for (j, &element) in item_big_endian.iter().enumerate() {
                 item_little_endian[3 - j] = element;
             }
 
-            memory[current_address..current_address + current_size].copy_from_slice(&item_little_endian);
+            memory[current_address..current_address + current_size].copy_from_slice(
+                &item_little_endian
+            );
             current_address += current_size;
         }
     }
