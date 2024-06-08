@@ -13,9 +13,7 @@ enum PouchItemType {
     Material = 7,
     Food = 8,
     KeyItem = 9,
-    Invalid = -1
+    Invalid = -1,
 }
 
-struct PouchItem {
-    address: i8
-}
+struct PouchItem {}
