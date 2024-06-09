@@ -5,6 +5,10 @@ use serde_json::Value;
 pub const NUM_POUCH_ITEMS_MAX: usize = 420;
 pub const NUM_INGREDIENTS_MAX: usize = 5;
 
+pub const NUM_POUCH_CATEGORIES: usize = 7;
+pub const NUM_TAB_MAX: usize = 50;
+pub const NUM_GRABBABLE_ITEMS: usize = 5;
+
 #[repr(i32)]
 pub enum PouchItemType {
     Sword = 0,
@@ -52,9 +56,11 @@ pub struct FixedSafeString<const L: usize> {
 
 impl<const L: usize> ToString for FixedSafeString<L> {
     fn to_string(&self) -> String {
-        let trimmed_string: Vec<u8> = self.buffer.iter().take_while(
-            |&&x| x != 0
-        ).cloned().collect();
+        let trimmed_string: Vec<u8> = self.buffer
+            .iter()
+            .take_while(|&&x| x != 0)
+            .cloned()
+            .collect();
         String::from_utf8(trimmed_string).unwrap()
     }
 }
@@ -118,4 +124,97 @@ pub struct PouchItem {
 
 pub fn get_readable_name(internal_name: &str, lang_data: Value) -> Option<String> {
     lang_data.get(internal_name)?.as_str().map(String::from)
+}
+
+#[repr(C)]
+pub struct MutexType {
+    pub state: u8,
+    pub is_recursive: bool,
+    pub lock_level: i32,
+    pub nest_count: i32,
+    pub owner_thread: u64,
+    pub mutex: i32,
+}
+
+#[repr(C)]
+pub struct CriticalSection {
+    // IDisposer
+    pub vptr: u64,
+    pub disposer_heap: u64,
+    pub list_node: ListNode,
+
+    // CriticalSection
+    pub critical_section_inner: MutexType,
+}
+
+#[repr(C)]
+pub struct OffsetList<T> {
+    // ListImpl
+    pub start_end: ListNode,
+    pub count: i32,
+
+    // OffsetList
+    pub offset: i32
+}
+
+#[repr(C)]
+pub struct Lists {
+    pub list1: OffsetList<PouchItem>,
+    pub list2: OffsetList<PouchItem>,
+    pub buffer: [PouchItem; NUM_POUCH_ITEMS_MAX],
+}
+
+#[repr(C)]
+pub struct GrabbedItemInfo {
+    pub item: u64,
+    pub _8: bool,
+    pub _9: bool,
+}
+
+#[repr(i32)]
+pub enum PouchCategory {
+    Sword = 0,
+    Bow = 1,
+    Shield = 2,
+    Armor = 3,
+    Material = 4,
+    Food = 5,
+    KeyItem = 6,
+    Invalid = -1,
+}
+
+#[repr(C)]
+pub struct PauseMenuDataManager {
+    pub vptr: u64,
+    pub crit_section: CriticalSection,
+    pub item_lists: Lists,
+    pub list_heads: [u64; NUM_POUCH_CATEGORIES],
+    pub tabs: [u64; NUM_TAB_MAX],
+    pub tabs_type: [PouchItemType; NUM_TAB_MAX],
+    pub last_added_item: u64,
+    pub last_added_item_tab: i32,
+    pub last_added_item_slot: i32,
+    pub num_tabs: i32,
+    pub grabbed_items: [GrabbedItemInfo; NUM_GRABBABLE_ITEMS],
+    pub item_444f0: u64,
+    pub _444f8: i32,
+    pub _444fc: i32,
+    pub _44500: i32,
+    pub _44504: u32,
+    pub _44508: u32,
+    pub _4450c: u32,
+    pub _44510: u32,
+    pub _44514: u32,
+    pub rito_soul_item: u64,
+    pub goron_soul_item: u64,
+    pub zora_soul_item: u64,
+    pub gerudo_soul_item: u64,
+
+    pub can_see_health_bar: bool,
+    pub newly_added_item: PouchItem,
+
+    pub is_pouch_for_quest: bool,
+
+    pub equipped_weapons: [u64; 4],
+    pub category_to_sort: PouchCategory,
 }
