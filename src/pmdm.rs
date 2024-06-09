@@ -148,7 +148,7 @@ pub struct CriticalSection {
 }
 
 #[repr(C)]
-pub struct OffsetList<T> {
+pub struct OffsetList {
     // ListImpl
     pub start_end: ListNode,
     pub count: i32,
@@ -159,8 +159,8 @@ pub struct OffsetList<T> {
 
 #[repr(C)]
 pub struct Lists {
-    pub list1: OffsetList<PouchItem>,
-    pub list2: OffsetList<PouchItem>,
+    pub list1: OffsetList,
+    pub list2: OffsetList,
     pub buffer: [PouchItem; NUM_POUCH_ITEMS_MAX],
 }
 
