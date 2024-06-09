@@ -4,18 +4,18 @@ use std::mem;
 const ASLR_START: u64 = 0x8000000;
 const ASLR_END: u64 = 0x8000000000;
 
-struct Memory {
+pub struct Memory {
     memory: HashMap<u64, Vec<u8>>,
 }
 
 impl Memory {
     // Initialize memory with data
-    fn init(address: u64, data: Vec<u8>) -> Memory {
+    pub fn init(address: u64, data: Vec<u8>) -> Memory {
         Memory { memory: HashMap::from([(address, data)]) }
     }
 
     // Read object from memory
-    fn read<T>(&self, address: u64) -> Result<T, String> where [(); mem::size_of::<T>()]: {
+    pub fn read<T>(&self, address: u64) -> Result<T, String> where [(); mem::size_of::<T>()]: {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
@@ -35,7 +35,7 @@ impl Memory {
     }
 
     // Write object to memory
-    fn write<T>(&mut self, address: u64, object: T) {
+    pub fn write<T>(&mut self, address: u64, object: T) {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
@@ -50,8 +50,8 @@ impl Memory {
             Ok(block) => block,
             Err(_) => {
                 // Remove blocks fully enclosed in address range
-                self.memory.retain(|start, block| !(
-                    address < *start && *start < end && *start + block.len() as u64 <= end
+                self.memory.retain(|&start, block| !(
+                    address < start && start < end && start + block.len() as u64 <= end
                 ));
 
                 // Find remainder of block containing address range
