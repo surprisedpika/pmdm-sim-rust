@@ -191,6 +191,7 @@ pub struct GrabbedItemInfo {
 #[repr(C)]
 pub struct PauseMenuDataMgr {
     pub vptr: u64,
+    pub singleton_disposer_buf: [u32; 0x8],
     pub crit_section: CriticalSection,
     pub item_lists: Lists,
     pub list_heads: SafeArray<u64, NUM_POUCH_CATEGORIES>,

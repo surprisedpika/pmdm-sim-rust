@@ -9,5 +9,4 @@ use pmdm::*;
 
 fn main() {
     println!("Hello, World!");
-    println!("{:x}", std::mem::size_of::<PauseMenuDataMgr>());
 }
