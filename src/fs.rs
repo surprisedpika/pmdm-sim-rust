@@ -18,7 +18,7 @@ pub fn read_dump(path: &str) -> io::Result<(u64, Vec<u8>)> {
     assert_eq!(
         data.len(), std::mem::size_of::<PauseMenuDataMgr>(),
         "PMDM dump size does not match (expected 0x{:x}, found 0x{:x})",
-        std::mem::size_of::<PauseMenuDataMgr>() + 8, data.len()
+        std::mem::size_of::<PauseMenuDataMgr>() + 8, buffer.len()
     );
 
     Ok((address, data))
