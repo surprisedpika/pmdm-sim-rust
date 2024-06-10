@@ -35,7 +35,5 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
-    fn get_items(&self) -> &OffsetList {
-        &self.item_lists.list1
-    }
+
 }
