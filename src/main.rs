@@ -3,9 +3,11 @@
 
 mod mem;
 mod pmdm;
+mod fs;
 
 use mem::*;
 use pmdm::*;
+use fs::*;
 
 fn main() {
     println!("Hello, World!");
