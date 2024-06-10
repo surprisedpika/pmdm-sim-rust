@@ -15,7 +15,7 @@ impl Memory {
     }
 
     // Read object from memory
-    pub fn read<T>(&self, address: u64) -> Result<T, String> where [(); mem::size_of::<T>()]: {
+    pub fn read<T>(&self, address: u64) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
@@ -28,14 +28,18 @@ impl Memory {
             |(start, block)| **start <= address && end - **start <= block.len() as u64
         ).ok_or(format!("Uninitialized memory in range {:x}-{:x}", address, end))?;
 
-        // Read object
-        unsafe { Ok(mem::transmute_copy::<[u8; mem::size_of::<T>()], T>(
-            block[(address - *start) as usize..(end - *start) as usize].try_into().unwrap()
-        )) }
+        // Read and box object
+        let mut object = Box::<T>::new_uninit();
+        Ok(unsafe {
+            object.as_mut_ptr().write(mem::transmute_copy::<[u8; mem::size_of::<T>()], T>(
+                block[(address - *start) as usize..(end - *start) as usize].try_into().unwrap()
+            ));
+            object.assume_init()
+        })
     }
 
     // Write object to memory
-    pub fn write<T>(&mut self, address: u64, object: T) -> Result<(), String> {
+    pub fn write<T>(&mut self, address: u64, object: Box<T>) -> Result<(), String> {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
@@ -95,7 +99,7 @@ impl Memory {
 
         // Write object
         unsafe { block.1[(address - *block.0) as usize..(end - *block.0) as usize].copy_from_slice(
-            mem::transmute_copy(&object)
+            mem::transmute_copy(&*object)
         ); }
 
         Ok(())
