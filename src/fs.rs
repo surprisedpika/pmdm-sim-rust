@@ -7,10 +7,5 @@ pub fn get_pmdm(path: &str) -> Option<Vec<u8>> {
     let mut buffer: Vec<u8> = Vec::new();
     file.read_to_end(&mut buffer).ok()?;
 
-    // clean up if dirty
-    if is_dirty {
-        buffer = clean_dump(buffer);
-    }
-
     Some(buffer)
 }
