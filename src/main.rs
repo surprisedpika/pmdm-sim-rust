@@ -10,9 +10,13 @@ use fs::*;
 use mem::*;
 use pmdm::*;
 
+const PMDM_BASE: u64 = 0xa982c8b0;
+
 fn main() {
     // Initialize PMDM
     let (pmdm_address, pmdm_data) = read_dump("pmdm.bin").unwrap();
+    println!("PauseMenuDataMgr::sInstance == 0x{:x}", pmdm_address);
+    println!("Heap base: 0x{:x}", pmdm_address - PMDM_BASE);
     let mut memory = Memory::init(pmdm_address, pmdm_data);
     let pmdm: Box<PauseMenuDataMgr> = memory.read(pmdm_address).unwrap();
 
