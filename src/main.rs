@@ -10,5 +10,7 @@ use pmdm::*;
 use fs::*;
 
 fn main() {
-    println!("Hello, World!");
+    let (pmdm_address, pmdm_data) = get_pmdm("pmdm.bin").unwrap();
+    let memory = Memory::init(pmdm_address, pmdm_data);
+    let pmdm: PauseMenuDataMgr = memory.read(pmdm_address).unwrap();
 }
