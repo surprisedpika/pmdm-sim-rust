@@ -25,7 +25,7 @@ impl Memory {
 
         // Find block containing address range
         let (start, block) = self.memory.iter().find(
-            |(start, block)| **start <= address && end - **start <= block.len() as u64
+            |&(start, block)| *start <= address && end - *start <= block.len() as u64
         ).ok_or(format!("Uninitialized memory in range {:x}-{:x}", address, end))?;
 
         // Read and box object
@@ -57,8 +57,8 @@ impl Memory {
                 // Find remainder of block containing address range
                 // end and remove block, if it exists
                 let next_block = if let Some(block) = self.memory.clone().iter().find(
-                    |(start, block)| address < **start && **start <= end
-                    && end < **start + block.len() as u64
+                    |&(start, block)| address < *start && *start <= end
+                    && end < *start + block.len() as u64
                 ) { &self.memory.remove(block.0).unwrap()[(end - *block.0) as usize..] } else {
                     &[]
                 };
