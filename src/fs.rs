@@ -9,6 +9,7 @@ pub fn get_pmdm(path: &str) -> Option<(u64, Vec<u8>)> {
     let mut buffer: Vec<u8> = Vec::new();
     file.read_to_end(&mut buffer).ok()?;
 
+    // seperate address and data
     let address = u64::from_le_bytes((&buffer[0..8]).try_into().unwrap());
     let data = buffer[8..].to_vec();
 
