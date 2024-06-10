@@ -5,10 +5,12 @@
 mod fs;
 mod mem;
 mod pmdm;
+mod types;
 
 use fs::*;
 use mem::*;
 use pmdm::*;
+use types::*;
 
 const PMDM_BASE: u64 = 0xa982c8b0;
 
