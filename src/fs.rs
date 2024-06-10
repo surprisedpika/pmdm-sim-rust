@@ -1,21 +1,25 @@
 use std::fs::File;
+use std::io;
 use std::io::Read;
 
 use crate::PauseMenuDataMgr;
 
-pub fn get_pmdm(path: &str) -> Option<(u64, Vec<u8>)> {
-    // read pmdm file
-    let mut file = File::open(path).ok()?;
-    let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer).ok()?;
+pub fn read_dump(path: &str) -> io::Result<(u64, Vec<u8>)> {
+    // Read dump
+    let mut file = File::open(path)?;
+    let mut buffer = vec![];
+    file.read_to_end(&mut buffer)?;
 
-    // seperate address and data
-    let address = u64::from_le_bytes((&buffer[0..8]).try_into().unwrap());
+    // Seperate address and data
+    let address = u64::from_le_bytes(buffer[..8].try_into().unwrap());
     let data = buffer[8..].to_vec();
 
-    if data.len() != std::mem::size_of::<PauseMenuDataMgr>() {
-        panic!("File size not the same as PMDM size");
-    }
+    // Check dump size
+    assert_eq!(
+        data.len(), std::mem::size_of::<PauseMenuDataMgr>(),
+        "PMDM dump size does not match (expected 0x{:x}, found 0x{:x})",
+        std::mem::size_of::<PauseMenuDataMgr>() + 8, data.len()
+    );
 
-    Some((address, data))
+    Ok((address, data))
 }

@@ -20,7 +20,7 @@ impl Memory {
 
         // Check if object is in ASLR range
         if address < ASLR_START || end > ASLR_END {
-            panic!("Address range {:x}-{:x} is outside ASLR range", address, end);
+            return Err(format!("Address range {:x}-{:x} is outside ASLR range", address, end));
         }
 
         // Find block containing address range
@@ -35,12 +35,12 @@ impl Memory {
     }
 
     // Write object to memory
-    pub fn write<T>(&mut self, address: u64, object: T) {
+    pub fn write<T>(&mut self, address: u64, object: T) -> Result<(), String> {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
         if address < ASLR_START || end > ASLR_END {
-            panic!("Address range {:x}-{:x} is outside ASLR range", address, end);
+            return Err(format!("Address range {:x}-{:x} is outside ASLR range", address, end));
         }
 
         // Find block containing address range, if it exists
@@ -97,5 +97,7 @@ impl Memory {
         unsafe { block.1[(address - *block.0) as usize..(end - *block.0) as usize].copy_from_slice(
             mem::transmute_copy(&object)
         ); }
+
+        Ok(())
     }
 }
