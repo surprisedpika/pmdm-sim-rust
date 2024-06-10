@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 
+use serde_json;
+
 use crate::PauseMenuDataMgr;
 
 pub fn read_dump(path: &str) -> io::Result<(u64, Vec<u8>)> {
@@ -22,4 +24,10 @@ pub fn read_dump(path: &str) -> io::Result<(u64, Vec<u8>)> {
     );
 
     Ok((address, data))
+}
+
+pub fn read_translations(path: &str) -> io::Result<serde_json::Value> {
+    let file = File::open(path)?;
+    let translations = serde_json::from_reader(file).unwrap();
+    Ok(translations)
 }

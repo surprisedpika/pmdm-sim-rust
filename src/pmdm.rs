@@ -1,6 +1,6 @@
 use std::mem;
 
-use serde_json::Value;
+use serde_json;
 
 pub const NUM_POUCH_ITEMS_MAX: i32 = 420;
 pub const NUM_INGREDIENTS_MAX: i32 = 5;
@@ -134,7 +134,7 @@ pub struct PouchItem {
     pub ingredients: FixedObjArray<FixedSafeString<64>, NUM_INGREDIENTS_MAX>,
 }
 
-pub fn translate_name(actor_name: &str, lang_data: Value) -> Option<String> {
+pub fn translate_name(actor_name: &str, lang_data: serde_json::Value) -> Option<String> {
     lang_data.get(actor_name)?.as_str().map(String::from)
 }
 
