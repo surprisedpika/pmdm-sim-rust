@@ -29,13 +29,9 @@ impl Memory {
         ).ok_or(format!("Uninitialized memory in range {:x}-{:x}", address, end))?;
 
         // Read and box object
-        let mut object = Box::<T>::new_uninit();
-        Ok(unsafe {
-            object.as_mut_ptr().write(mem::transmute_copy::<[u8; mem::size_of::<T>()], T>(
-                block[(address - *start) as usize..(end - *start) as usize].try_into().unwrap()
-            ));
-            object.assume_init()
-        })
+        Ok(unsafe { Box::from_raw(mem::transmute::<*mut u8, *mut T>(block[
+            (address - *start) as usize..(end - *start) as usize
+        ].to_vec().into_boxed_slice().as_mut_ptr())) })
     }
 
     // Write object to memory
