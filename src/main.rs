@@ -1,6 +1,6 @@
 #![feature(generic_const_exprs)]
 #![feature(map_try_insert)]
-#![feature(new_uninit)]
+#![feature(slice_ptr_get)]
 
 mod fs;
 mod mem;
@@ -22,7 +22,8 @@ fn main() {
     let first_item: Box<PouchItem> = memory.read(u64::from_le(
         pmdm.item_lists.list1.start_end.next
     )).unwrap();
-    println!("firstItem: {}", translate_name(
-        first_item.name.to_string().as_str(), translations
-    ).unwrap());
+    let actor_name = first_item.name.to_string();
+    println!("firstItem: {}", if let Some(name) = translate_name(
+        actor_name.as_str(), translations
+    ) { name } else { actor_name });
 }
