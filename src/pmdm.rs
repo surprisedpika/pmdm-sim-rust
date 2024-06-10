@@ -134,7 +134,7 @@ pub struct PouchItem {
     pub ingredients: FixedObjArray<FixedSafeString<64>, NUM_INGREDIENTS_MAX>,
 }
 
-pub fn get_readable_name(internal_name: &str, lang_data: Value) -> Option<String> {
+pub fn translate_name(internal_name: &str, lang_data: Value) -> Option<String> {
     lang_data.get(internal_name)?.as_str().map(String::from)
 }
 
