@@ -95,7 +95,7 @@ impl Memory {
 
         // Write object
         unsafe { block.1[(address - *block.0) as usize..(end - *block.0) as usize].copy_from_slice(
-            mem::transmute_copy::<T, &[u8]>(&object)
+            mem::transmute_copy(&object)
         ); }
     }
 }
