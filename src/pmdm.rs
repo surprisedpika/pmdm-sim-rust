@@ -34,4 +34,8 @@ pub struct PauseMenuDataMgr {
     pub category_to_sort: PouchCategory,
 }
 
-impl PauseMenuDataMgr {}
+impl PauseMenuDataMgr {
+    fn get_items(&self) -> &OffsetList {
+        &self.item_lists.list1
+    }
+}
