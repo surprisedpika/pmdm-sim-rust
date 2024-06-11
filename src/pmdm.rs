@@ -35,5 +35,23 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
+    pub fn pause(&self) {}
 
+    pub fn unpause(&self) {}
+    
+    pub fn collect_item(&self, item: PouchItem) {}
+
+    pub fn update_item(&self, item: PouchItem) {}
+
+    pub fn toggle_equipped(&self, item: PouchItem) {}
+
+    pub fn make_item_translucent(&self, item: PouchItem) {}
+
+    pub fn remove_item(&self, item: PouchItem) {}
+
+    pub fn break_slot(&self) {}
+
+    pub fn save(&self) {}
+
+    pub fn load_save(&self) {}
 }
