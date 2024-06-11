@@ -249,6 +249,7 @@ pub struct WeaponModifierInfo {
     value: i32,
 }
 
+#[derive(Clone)]
 pub struct GameDataItem {
     name: String,
     equipped: bool,

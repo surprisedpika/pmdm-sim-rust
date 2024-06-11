@@ -1,6 +1,7 @@
 use crate::mem::*;
 use crate::types::*;
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct PauseMenuDataMgr {
     pub vptr: Pointer,
