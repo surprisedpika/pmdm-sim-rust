@@ -1,8 +1,9 @@
+use std::marker::PhantomData;
 use std::mem;
 
 use serde_json;
 
-use crate::mem::Pointer;
+use crate::mem::*;
 
 pub const NUM_POUCH_ITEMS_MAX: i32 = 420;
 pub const NUM_INGREDIENTS_MAX: i32 = 5;
@@ -11,6 +12,7 @@ pub const NUM_POUCH_CATEGORIES: i32 = 7;
 pub const NUM_TAB_MAX: i32 = 50;
 pub const NUM_GRABBABLE_ITEMS: i32 = 5;
 
+#[derive(Clone, Copy)]
 #[repr(i32)]
 pub enum PouchItemType {
     Sword = 0,
@@ -26,6 +28,7 @@ pub enum PouchItemType {
     Invalid = -1,
 }
 
+#[derive(Clone, Copy)]
 #[repr(i32)]
 pub enum PouchCategory {
     Sword = 0,
@@ -38,6 +41,7 @@ pub enum PouchCategory {
     Invalid = -1,
 }
 
+#[derive(Clone, Copy)]
 #[repr(i32)]
 pub enum ItemUse {
     WeaponSmallSword = 0,
@@ -54,6 +58,7 @@ pub enum ItemUse {
     Invalid = -1,
 }
 
+#[derive(Clone, Copy)]
 #[repr(u32)]
 pub enum WeaponModifier {
     None = 0x0,
@@ -69,12 +74,14 @@ pub enum WeaponModifier {
     IsYellow = 0x80000000,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct ListNode {
     pub prev: Pointer<ListNode>,
     pub next: Pointer<ListNode>,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct FixedSafeString<const L: usize> {
     pub vptr: Pointer<Pointer>,
@@ -94,6 +101,7 @@ impl<const L: usize> ToString for FixedSafeString<L> {
     }
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct CookData {
     pub health_recover: i32,
@@ -103,6 +111,7 @@ pub struct CookData {
     pub effect_level: f32,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct WeaponData {
     pub modifier_value: u32,
@@ -110,24 +119,28 @@ pub struct WeaponData {
     pub modifier: u32,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub union Data {
     pub cook: mem::ManuallyDrop<CookData>,
     pub weapon: mem::ManuallyDrop<WeaponData>,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct FreeList {
     pub free: Pointer,
     pub work: Pointer,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct Node<T> {
     pub next_node: Pointer<Node<T>>,
     pub elem: T,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct FixedObjArray<T, const L: i32> where [(); L as usize]: {
     pub ptr_num: i32,
@@ -137,6 +150,7 @@ pub struct FixedObjArray<T, const L: i32> where [(); L as usize]: {
     pub work: [Node<T>; L as usize],
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct PouchItem {
     pub vptr: Pointer,
@@ -155,6 +169,7 @@ pub fn translate_name(actor_name: &str, lang_data: serde_json::Value) -> Option<
     lang_data.get(actor_name)?.as_str().map(String::from)
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct MutexType {
     pub state: u8,
@@ -165,6 +180,7 @@ pub struct MutexType {
     pub mutex: i32,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct CriticalSection {
     // IDisposer
@@ -176,28 +192,43 @@ pub struct CriticalSection {
     pub critical_section_inner: MutexType,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
-pub struct OffsetList {
+pub struct OffsetList<T> {
     // ListImpl
     pub start_end: ListNode,
     pub count: i32,
 
     // OffsetList
     pub offset: i32,
+
+    phantom: PhantomData<T>,
 }
 
+impl<T> OffsetList<T> {
+    pub fn nth(&self, idx: i32, memory: &Memory) -> Pointer<T> {
+        if self.count as u32 <= idx as u32 { return Pointer::new(0u64); }
+        let mut node = self.start_end.next;
+        for _ in 0..idx { node = node.read(memory).unwrap().next; }
+        (node - self.offset as u64).cast()
+    }
+}
+
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct SafeArray<T, const N: i32> where [(); N as usize]: {
     pub buffer: [T; N as usize],
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct Lists {
-    pub list1: OffsetList,
-    pub list2: OffsetList,
+    pub list1: OffsetList<PouchItem>,
+    pub list2: OffsetList<PouchItem>,
     pub buffer: SafeArray<PouchItem, NUM_POUCH_ITEMS_MAX>,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct GrabbedItemInfo {
     pub item: Pointer<PouchItem>,
@@ -205,11 +236,13 @@ pub struct GrabbedItemInfo {
     _9: bool,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct TypedBitFlag<Enum> {
     bits: Enum,
 }
 
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct WeaponModifierInfo {
     flags: TypedBitFlag<WeaponModifier>,

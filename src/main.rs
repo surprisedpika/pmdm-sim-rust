@@ -20,14 +20,16 @@ fn main() {
     println!("PauseMenuDataMgr::sInstance == 0x{:x}", pmdm_address);
     println!("Heap base: 0x{:x}", pmdm_address - PMDM_BASE);
     let mut memory = Memory::init(pmdm_address, pmdm_data);
-    let pmdm = Pointer::<PauseMenuDataMgr>::new(pmdm_address);
+    let pmdm_ptr = Pointer::<PauseMenuDataMgr>::new(pmdm_address);
+    let mut pmdm = pmdm_ptr.read(&memory).unwrap();
 
     // Initialize translations
     let translations = read_translations("botw_names.json").unwrap();
 
-    let first_item: Box<PouchItem> = memory.read(u64::from_le(
-        pmdm.read(&memory).unwrap().item_lists.list1.start_end.next
-    )).unwrap();
+    let list1 = pmdm.item_lists.list1;
+    let first_item: Box<PouchItem> = (
+        list1.start_end.next.to_ne() - list1.offset as u64
+    ).cast().read(&memory).unwrap();
     let actor_name = first_item.name.to_string();
     println!("firstItem: {}", if let Some(name) = translate_name(
         actor_name.as_str(), translations

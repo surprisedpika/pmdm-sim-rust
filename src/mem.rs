@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::mem;
+use std::ops;
 
 const ASLR_START: u64 = 0x8000000;
 const ASLR_END: u64 = 0x8000000000;
@@ -11,9 +12,9 @@ pub struct Memory {
 
 impl Memory {
     // Initialize memory with data
-    pub fn init(address: u64, data: Vec<u8>) -> Memory {
-        Memory { memory: HashMap::from([(address, data)]) }
-    }
+    pub fn init(address: u64, data: Vec<u8>) -> Self { Self {
+        memory: HashMap::from([(address, data)])
+    } }
 
     // Read object from memory
     pub fn read<T>(&self, address: u64) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
@@ -103,6 +104,8 @@ impl Memory {
     }
 }
 
+#[derive(Clone, Copy)]
+#[repr(C)]
 pub struct Pointer<T = u8> {
     pub address: u64,
     phantom: PhantomData<T>,
@@ -110,7 +113,7 @@ pub struct Pointer<T = u8> {
 
 impl<T> Pointer<T> {
     // Create pointer to address
-    pub fn new(address: u64) -> Pointer<T> { Pointer { address, phantom: PhantomData } }
+    pub fn new(address: u64) -> Self { Self { address, phantom: PhantomData } }
 
     // Dereference and read from pointer
     pub fn read(&self, memory: &Memory) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
@@ -121,4 +124,24 @@ impl<T> Pointer<T> {
     pub fn write(&self, object: Box<T>, memory: &mut Memory) -> Result<(), String> {
         memory.write(self.address, object)
     }
+
+    // Convert to native endian
+    pub fn to_ne(&self) -> Self { Self {
+        address: u64::from_le(self.address), phantom: PhantomData
+    } }
+
+    // Cast pointer type
+    pub fn cast<U>(&self) -> Pointer<U> { Pointer { address: self.address, phantom: PhantomData } }
+}
+
+impl<T> ops::Add<u64> for Pointer<T> {
+    type Output = Self;
+
+    fn add(self, rhs: u64) -> Self { Self { address: self.address + rhs, phantom: PhantomData } }
+}
+
+impl<T> ops::Sub<u64> for Pointer<T> {
+    type Output = Self;
+
+    fn sub(self, rhs: u64) -> Self { Self { address: self.address - rhs, phantom: PhantomData } }
 }

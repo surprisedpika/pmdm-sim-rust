@@ -1,5 +1,5 @@
-use crate::mem::Pointer;
-use crate::{ types::*, Memory };
+use crate::mem::*;
+use crate::types::*;
 
 #[repr(C)]
 pub struct PauseMenuDataMgr {
@@ -36,50 +36,43 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
-    fn save_to_game_data(&self, list: &OffsetList) {
-        //TODO: Implement
-    }
-
     // Pick up item
     pub fn get(
-        &self,
-        name: &str,
-        item_type: PouchItemType,
-        value: i32,
+        &self, memory: &mut Memory, name: &str, item_type: PouchItemType, value: i32,
         modifier: Pointer<WeaponModifierInfo>
     ) {}
 
     // Remove item slot while unpaused
-    pub fn remove(&self, item: Pointer<PouchItem>) {}
+    pub fn remove(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
 
     // Remove item slot while paused
-    pub fn drop(&self, item: Pointer<PouchItem>) {}
+    pub fn drop(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
 
     // Damage or shoot item
-    pub fn set_value(&self, item: Pointer<PouchItem>, value: i32) {}
+    pub fn set_value(&self, memory: &mut Memory, item: Pointer<PouchItem>, value: i32) {}
 
     // Equip or enable item
-    pub fn equip(&self, memory: &Memory, item: Pointer<PouchItem>) {}
+    pub fn equip(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
 
     // Unequip or disable item
-    pub fn unequip(&self, memory: &Memory, item_ptr: Pointer<PouchItem>) {
-        let mut item = item_ptr.read(memory).ok().unwrap();
+    pub fn unequip(&self, memory: &mut Memory, item_ptr: Pointer<PouchItem>) {
+        let mut item = item_ptr.read(memory).unwrap();
         item.equipped = false;
-        self.save_to_game_data(&self.item_lists.list1)
+        self.sync(memory);
     }
 
     // Open inventory
-    pub fn pause(&self) {}
+    pub fn pause(&self, memory: &mut Memory) {}
 
     // Sync GameData
-    pub fn sync(&self) {}
+    pub fn sync(&self, memory: &mut Memory) {}
 
     // Save file
-    pub fn save(&self) -> GameData {}
+    pub fn save(&self, memory: &Memory) /* -> GameData */ {}
 
     // Load file
-    pub fn load(&self, file: GameData) {}
+    pub fn load(&self, memory: &mut Memory, file: GameData) {}
 
     // Break slots
-    pub fn offset(&self, num: u32) {}
+    pub fn offset(&self, memory: &mut Memory, num: u32) {}
 }
