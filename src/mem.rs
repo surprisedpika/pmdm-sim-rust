@@ -121,7 +121,7 @@ impl<T> Pointer<T> {
     }
 
     // Dereference and write to pointer
-    pub fn write(&self, object: Box<T>, memory: &mut Memory) -> Result<(), String> {
+    pub fn write(&self, memory: &mut Memory, object: Box<T>) -> Result<(), String> {
         memory.write(self.address, object)
     }
 
