@@ -1,5 +1,5 @@
 use crate::mem::Pointer;
-use crate::types::*;
+use crate::{ types::*, Memory };
 
 #[repr(C)]
 pub struct PauseMenuDataMgr {
@@ -36,10 +36,17 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
+    fn save_to_game_data(&self, list: &OffsetList) {
+        //TODO: Implement
+    }
+
     // Pick up item
     pub fn get(
-        &self, name: &str, item_type: PouchItemType, value: i32,
-        modifier: Pointer<WeaponModifierInfo>,
+        &self,
+        name: &str,
+        item_type: PouchItemType,
+        value: i32,
+        modifier: Pointer<WeaponModifierInfo>
     ) {}
 
     // Remove item slot while unpaused
@@ -52,10 +59,14 @@ impl PauseMenuDataMgr {
     pub fn set_value(&self, item: Pointer<PouchItem>, value: i32) {}
 
     // Equip or enable item
-    pub fn equip(&self, item: Pointer<PouchItem>) {}
+    pub fn equip(&self, memory: &Memory, item: Pointer<PouchItem>) {}
 
     // Unequip or disable item
-    pub fn unequip(&self, item: Pointer<PouchItem>) {}
+    pub fn unequip(&self, memory: &Memory, item_ptr: Pointer<PouchItem>) {
+        let mut item = item_ptr.read(memory).ok().unwrap();
+        item.equipped = false;
+        self.save_to_game_data(&self.item_lists.list1)
+    }
 
     // Open inventory
     pub fn pause(&self) {}
