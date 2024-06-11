@@ -2,6 +2,8 @@ use std::mem;
 
 use serde_json;
 
+use crate::mem::Pointer;
+
 pub const NUM_POUCH_ITEMS_MAX: i32 = 420;
 pub const NUM_INGREDIENTS_MAX: i32 = 5;
 
@@ -52,16 +54,31 @@ pub enum ItemUse {
     Invalid = -1,
 }
 
+#[repr(u32)]
+pub enum WeaponModifier {
+    None = 0x0,
+    AddAtk = 0x1,
+    AddLife = 0x2,
+    AddCrit = 0x4,
+    AddThrow = 0x8,
+    AddSpreadFire = 0x10,
+    AddZoomRapid = 0x20,
+    AddRapidFire = 0x40,
+    AddSurfMaster = 0x80,
+    AddGuard = 0x100,
+    IsYellow = 0x80000000,
+}
+
 #[repr(C)]
 pub struct ListNode {
-    pub prev: u64,
-    pub next: u64,
+    pub prev: Pointer<ListNode>,
+    pub next: Pointer<ListNode>,
 }
 
 #[repr(C)]
 pub struct FixedSafeString<const L: usize> {
-    pub vptr: u64,
-    pub string_top: u64,
+    pub vptr: Pointer<Pointer>,
+    pub string_top: Pointer,
     pub buffer_size: i32,
     pub buffer: [u8; L],
 }
@@ -101,13 +118,13 @@ pub union Data {
 
 #[repr(C)]
 pub struct FreeList {
-    pub free: u64,
-    pub work: u64,
+    pub free: Pointer,
+    pub work: Pointer,
 }
 
 #[repr(C)]
 pub struct Node<T> {
-    pub next_node: u64,
+    pub next_node: Pointer<Node<T>>,
     pub elem: T,
 }
 
@@ -115,14 +132,14 @@ pub struct Node<T> {
 pub struct FixedObjArray<T, const L: i32> where [(); L as usize]: {
     pub ptr_num: i32,
     pub ptr_num_max: i32,
-    pub ptrs: u64,
+    pub ptrs: Pointer<Pointer<T>>,
     pub free_list: FreeList,
     pub work: [Node<T>; L as usize],
 }
 
 #[repr(C)]
 pub struct PouchItem {
-    pub vptr: u64,
+    pub vptr: Pointer,
     pub list_node: ListNode,
     pub item_type: PouchItemType,
     pub item_use: ItemUse,
@@ -144,15 +161,15 @@ pub struct MutexType {
     pub is_recursive: bool,
     pub lock_level: i32,
     pub nest_count: i32,
-    pub owner_thread: u64,
+    pub owner_thread: Pointer,
     pub mutex: i32,
 }
 
 #[repr(C)]
 pub struct CriticalSection {
     // IDisposer
-    pub vptr: u64,
-    pub disposer_heap: u64,
+    pub vptr: Pointer,
+    pub disposer_heap: Pointer,
     pub list_node: ListNode,
 
     // CriticalSection
@@ -183,7 +200,27 @@ pub struct Lists {
 
 #[repr(C)]
 pub struct GrabbedItemInfo {
-    pub item: u64,
+    pub item: Pointer<PouchItem>,
     _8: bool,
     _9: bool,
 }
+
+#[repr(C)]
+pub struct TypedBitFlag<Enum> {
+    bits: Enum,
+}
+
+#[repr(C)]
+pub struct WeaponModifierInfo {
+    flags: TypedBitFlag<WeaponModifier>,
+    value: i32,
+}
+
+pub struct GameDataItem {
+    name: String,
+    equipped: bool,
+    value: i32,
+    data: Data,
+}
+
+pub type GameData = Vec<GameDataItem>;

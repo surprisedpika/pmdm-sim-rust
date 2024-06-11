@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::mem;
 
 const ASLR_START: u64 = 0x8000000;
@@ -29,7 +30,7 @@ impl Memory {
         ).ok_or(format!("Uninitialized memory in range {:x}-{:x}", address, end))?;
 
         // Read and box object
-        Ok(unsafe { Box::from_raw(mem::transmute_copy::<*mut u8, *mut T>(&Box::into_raw(block[
+        Ok(unsafe { Box::from_raw(mem::transmute::<*mut u8, *mut T>(Box::into_raw(block[
             (address - *start) as usize..(end - *start) as usize
         ].to_vec().into_boxed_slice()).as_mut_ptr())) })
     }
@@ -94,10 +95,30 @@ impl Memory {
         };
 
         // Write object
-        unsafe { block.1[(address - *block.0) as usize..(end - *block.0) as usize].copy_from_slice(
-            mem::transmute_copy(&*object)
-        ); }
+        unsafe { block.1[
+            (address - *block.0) as usize..(end - *block.0) as usize
+        ].as_mut_ptr().copy_from(mem::transmute(Box::into_raw(object)), mem::size_of::<T>()); }
 
         Ok(())
+    }
+}
+
+pub struct Pointer<T = u8> {
+    pub address: u64,
+    phantom: PhantomData<T>,
+}
+
+impl<T> Pointer<T> {
+    // Create pointer to address
+    pub fn new(address: u64) -> Pointer<T> { Pointer { address, phantom: PhantomData } }
+
+    // Dereference and read from pointer
+    pub fn read(&self, memory: &Memory) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
+        memory.read(self.address)
+    }
+
+    // Dereference and write to pointer
+    pub fn write(&self, object: Box<T>, memory: &mut Memory) -> Result<(), String> {
+        memory.write(self.address, object)
     }
 }
