@@ -83,9 +83,9 @@ impl Memory {
                     },
                     Err(_) => {
                         // Create block
-                        let block = self.memory.try_insert(
-                            address, vec![0u8; mem::size_of::<T>() + next_block.len()]
-                        ).unwrap();
+                        let block = self.memory.try_insert(address, vec![
+                            Default::default(); mem::size_of::<T>() + next_block.len()
+                        ]).unwrap();
 
                         // Write next block data
                         block[mem::size_of::<T>()..].copy_from_slice(next_block);
