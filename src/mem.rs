@@ -145,3 +145,7 @@ impl<T> ops::Sub<u64> for Pointer<T> {
 
     fn sub(self, rhs: u64) -> Self { Self { address: self.address - rhs, phantom: PhantomData } }
 }
+
+impl<T> PartialEq<Self> for Pointer<T> {
+    fn eq(&self, other: &Self) -> bool { self.address == other.address }
+}

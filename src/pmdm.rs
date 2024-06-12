@@ -1,3 +1,5 @@
+use std::mem;
+
 use crate::mem::*;
 use crate::types::*;
 
@@ -47,33 +49,70 @@ impl PauseMenuDataMgr {
     pub fn remove(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
 
     // Remove item slot while paused
-    pub fn drop(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
+    pub fn drop(&self, memory: &mut Memory, item: Pointer<PouchItem>) {
+        (item.cast() + mem::offset_of!(PouchItem, in_inventory) as u64).write(
+            memory, Box::new(false)
+        ).unwrap();
+    }
 
     // Damage or shoot item
-    pub fn set_value(&self, memory: &mut Memory, item: Pointer<PouchItem>, value: i32) {}
+    pub fn set_value(&self, memory: &mut Memory, item: Pointer<PouchItem>, value: i32) {
+        (item.cast() + mem::offset_of!(PouchItem, value) as u64).write(
+            memory, Box::new(value.to_le())
+        ).unwrap();
+    }
 
     // Equip or enable item
-    pub fn equip(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
+    pub fn equip(&self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
+        (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
+            memory, Box::new(true)
+        ).unwrap();
+        self.sync(memory, this);
+    }
 
     // Unequip or disable item
-    pub fn unequip(&self, memory: &mut Memory, item_ptr: Pointer<PouchItem>) {
-        let mut item = item_ptr.read(memory).unwrap();
-        item.equipped = false;
-        self.sync(memory);
+    pub fn unequip(&self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
+        (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
+            memory, Box::new(false)
+        ).unwrap();
+        self.sync(memory, this);
     }
 
     // Open inventory
-    pub fn pause(&self, memory: &mut Memory) {}
+    pub fn pause(&self, memory: &Memory, this: Pointer<Self>) {
+        let list1 = self.item_lists.list1;
+        if list1.count == 0 { return; }
+
+        // Traverse list1 until mStartEnd reached
+        let mut node = list1.start_end.next;
+        let mut visited_nodes = vec![node];
+
+        while node != (this + mem::offset_of!(Self, item_lists.list1.start_end) as u64).cast() {
+            // Prevent cyclic nodes from hanging
+            if visited_nodes.contains(&node) { panic!("Game has frozen due to cyclic nodes"); }
+            visited_nodes.push(node);
+            node = node.read(memory).unwrap().next;
+        }
+    }
 
     // Sync GameData
-    pub fn sync(&self, memory: &mut Memory) {}
+    pub fn sync(&self, memory: &mut Memory, this: Pointer<Self>) {}
 
     // Save file
     pub fn save(&self, memory: &Memory) /* -> GameData */ {}
 
     // Load file
-    pub fn load(&self, memory: &mut Memory, file: GameData) {}
+    pub fn load(&self, memory: &mut Memory, this: Pointer<Self>, file: GameData) {}
 
     // Break slots
-    pub fn offset(&self, memory: &mut Memory, num: u32) {}
+    pub fn offset(&self, memory: &mut Memory, this: Pointer<Self>, num: u32) {
+        let lists = self.item_lists;
+
+        (this.cast() + mem::offset_of!(Self, item_lists.list1.count) as u64).write(
+            memory, Box::new(lists.list1.count - num as i32)
+        ).unwrap();
+        (this.cast() + mem::offset_of!(Self, item_lists.list2.count) as u64).write(
+            memory, Box::new(lists.list2.count + num as i32)
+        ).unwrap();
+    }
 }
