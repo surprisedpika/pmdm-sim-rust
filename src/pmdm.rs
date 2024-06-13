@@ -1,4 +1,5 @@
 use std::mem;
+use std::ptr;
 
 use crate::mem::*;
 use crate::types::*;
@@ -39,43 +40,58 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
+    // Update self from memory
+    fn update(&mut self, memory: &mut Memory, this: Pointer<Self>) where Self: Sized {
+        unsafe { ptr::copy_nonoverlapping(
+            Box::into_raw(this.read(memory).unwrap()), ptr::from_mut(self), mem::size_of::<Self>()
+        ); }
+    }
+
     // Pick up item
     pub fn get(
-        &self, memory: &mut Memory, name: &str, item_type: PouchItemType, value: i32,
-        modifier: Pointer<WeaponModifierInfo>
-    ) {}
+        &mut self, memory: &mut Memory, this: Pointer<Self>, name: &str, item_type: PouchItemType,
+        value: i32, modifier: Pointer<WeaponModifierInfo>
+    ) {
+        self.update(memory, this);
+    }
 
     // Remove item slot while unpaused
-    pub fn remove(&self, memory: &mut Memory, item: Pointer<PouchItem>) {}
+    pub fn remove(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {}
 
     // Remove item slot while paused
-    pub fn drop(&self, memory: &mut Memory, item: Pointer<PouchItem>) {
+    pub fn drop(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
         (item.cast() + mem::offset_of!(PouchItem, in_inventory) as u64).write(
             memory, Box::new(false)
         ).unwrap();
+        self.update(memory, this);
     }
 
     // Damage or shoot item
-    pub fn set_value(&self, memory: &mut Memory, item: Pointer<PouchItem>, value: i32) {
+    pub fn set_value(
+        &mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>, value: i32
+    ) {
         (item.cast() + mem::offset_of!(PouchItem, value) as u64).write(
             memory, Box::new(value.to_le())
         ).unwrap();
+        self.update(memory, this);
     }
 
     // Equip or enable item
-    pub fn equip(&self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
+    pub fn equip(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
         (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
             memory, Box::new(true)
         ).unwrap();
         self.sync(memory, this);
+        self.update(memory, this);
     }
 
     // Unequip or disable item
-    pub fn unequip(&self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
+    pub fn unequip(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
         (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
             memory, Box::new(false)
         ).unwrap();
         self.sync(memory, this);
+        self.update(memory, this);
     }
 
     // Open inventory
@@ -96,16 +112,20 @@ impl PauseMenuDataMgr {
     }
 
     // Sync GameData
-    pub fn sync(&self, memory: &mut Memory, this: Pointer<Self>) {}
+    pub fn sync(&mut self, memory: &mut Memory, this: Pointer<Self>) {
+        self.update(memory, this);
+    }
 
     // Save file
-    pub fn save(&self, memory: &Memory) /* -> GameData */ {}
+    pub fn save(&self, memory: &Memory, this: Pointer<Self>) /* -> GameData */ {}
 
     // Load file
-    pub fn load(&self, memory: &mut Memory, this: Pointer<Self>, file: GameData) {}
+    pub fn load(&mut self, memory: &mut Memory, this: Pointer<Self>, file: GameData) {
+        self.update(memory, this);
+    }
 
     // Break slots
-    pub fn offset(&self, memory: &mut Memory, this: Pointer<Self>, num: u32) {
+    pub fn offset(&mut self, memory: &mut Memory, this: Pointer<Self>, num: u32) {
         let lists = self.item_lists;
 
         (this.cast() + mem::offset_of!(Self, item_lists.list1.count) as u64).write(
@@ -114,5 +134,6 @@ impl PauseMenuDataMgr {
         (this.cast() + mem::offset_of!(Self, item_lists.list2.count) as u64).write(
             memory, Box::new(lists.list2.count + num as i32)
         ).unwrap();
+        self.update(memory, this);
     }
 }
