@@ -206,12 +206,14 @@ pub struct OffsetList<T> {
 }
 
 impl<T> OffsetList<T> {
-    pub fn nth(&self, idx: i32, memory: &Memory) -> Pointer<T> {
-        if self.count as u32 <= idx as u32 { return Pointer::new(0u64); }
+    pub fn nth(&self, n: i32, memory: &Memory) -> Pointer<T> {
+        if self.count as u32 <= n as u32 { return Pointer::new(0u64); }
         let mut node = self.start_end.next;
-        for _ in 0..idx { node = node.read(memory).unwrap().next; }
+        for _ in 0..n { node = node.read(memory).unwrap().next; }
         (node - self.offset as u64).cast()
     }
+
+    pub fn sort(&self, memory: &mut Memory, cmp: fn(&Memory, Pointer<T>, Pointer<T>) -> i32) {}
 }
 
 #[derive(Clone, Copy)]
