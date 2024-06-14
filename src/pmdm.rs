@@ -52,7 +52,7 @@ impl PauseMenuDataMgr {
     fn update_inventory_info(&self, memory: &Memory, this: Pointer<Self>) {}
 
     fn sort_predicate(memory: &Memory, lhs: Pointer<PouchItem>, rhs: Pointer<PouchItem>) -> i32 {
-        return 0;
+        0
     }
 
     fn update_after_adding_item(&mut self, memory: &mut Memory, this: Pointer<Self>) {
