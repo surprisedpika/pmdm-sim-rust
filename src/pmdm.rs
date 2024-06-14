@@ -47,9 +47,9 @@ impl PauseMenuDataMgr {
         ); }
     }
 
-    fn update_list_heads(&mut self, memory: &mut Memory, this: Pointer<Self>) {}
-
     fn update_inventory_info(&self, memory: &Memory, this: Pointer<Self>) {}
+
+    fn update_list_heads(&mut self, memory: &mut Memory, this: Pointer<Self>) {}
 
     fn sort_predicate(memory: &Memory, lhs: Pointer<PouchItem>, rhs: Pointer<PouchItem>) -> i32 {
         0
