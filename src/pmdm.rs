@@ -143,7 +143,7 @@ impl PauseMenuDataMgr {
 
     // Save file
     pub fn save(&self, memory: &Memory, this: Pointer<Self>) -> GameData {
-        return vec![];
+        vec![]
     }
 
     // Load file
