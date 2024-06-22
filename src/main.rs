@@ -15,13 +15,13 @@ use mem::*;
 use pmdm::*;
 use types::*;
 
-const PMDM_BASE: u64 = 0xa982c8b0;
+const PMDM_BASE_AOC: u64 = 0xa982c8b0;
 
 fn main() {
     // Initialize PMDM
     let (pmdm_address, pmdm_data) = read_dump("pmdm.bin").unwrap();
     println!("PauseMenuDataMgr::sInstance == 0x{:x}", pmdm_address);
-    println!("Heap base: 0x{:x}", pmdm_address - PMDM_BASE);
+    println!("Heap base: 0x{:x}", pmdm_address - PMDM_BASE_AOC);
     let mut memory = Memory::init(pmdm_address, pmdm_data);
     let pmdm_ptr = Pointer::<PauseMenuDataMgr>::new(pmdm_address);
     let mut pmdm = pmdm_ptr.read(&memory).unwrap();
