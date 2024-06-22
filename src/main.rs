@@ -1,11 +1,14 @@
+#![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![feature(map_try_insert)]
 #![feature(offset_of_nested)]
 #![feature(slice_ptr_get)]
+#![feature(trivial_bounds)]
 
 mod fs;
 mod mem;
 mod pmdm;
+mod traits;
 mod types;
 
 use fs::*;

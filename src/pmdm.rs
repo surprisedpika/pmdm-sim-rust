@@ -1,13 +1,13 @@
 use std::mem;
-use std::ptr;
 
 use crate::mem::*;
+use crate::traits::*;
 use crate::types::*;
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct PauseMenuDataMgr {
-    pub vptr: Pointer,
+    pub vptr: Pointer<Pointer>,
     pub singleton_disposer_buf: [u32; 0x8],
     pub crit_section: CriticalSection,
     pub item_lists: Lists,
@@ -40,13 +40,6 @@ pub struct PauseMenuDataMgr {
 }
 
 impl PauseMenuDataMgr {
-    // Update self from memory
-    fn update(&mut self, memory: &mut Memory, this: Pointer<Self>) {
-        unsafe { ptr::copy_nonoverlapping(
-            Box::into_raw(this.read(memory).unwrap()), ptr::from_mut(self), mem::size_of::<Self>()
-        ); }
-    }
-
     fn update_inventory_info(&self, memory: &Memory, this: Pointer<Self>) {}
 
     fn update_list_heads(&mut self, memory: &mut Memory, this: Pointer<Self>) {}
@@ -61,11 +54,11 @@ impl PauseMenuDataMgr {
         (this.cast() + mem::offset_of!(Self, category_to_sort) as u64).write(
             memory, Box::new((PouchCategory::Invalid as i32).to_le())
         ).unwrap();
-        self.update(memory, this);
-        (this.cast::<OffsetList<PouchItem>>() + mem::offset_of!(
+        self.update(memory, &this);
+        let list1 = this.cast::<OffsetList<PouchItem>>() + mem::offset_of!(
             Self, item_lists.list1
-        ) as u64).read(memory).unwrap().sort(memory, Self::sort_predicate);
-        self.update(memory, this);
+        ) as u64;
+        list1.read(memory).unwrap().sort(memory, list1, Self::sort_predicate);
 
         self.update_inventory_info(memory, this);
         self.update_list_heads(memory, this);
@@ -82,6 +75,23 @@ impl PauseMenuDataMgr {
 
     // Remove item slot while unpaused
     pub fn remove(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
+        if self.item_444f0 == item {
+            (this.cast() + mem::offset_of!(Self, item_444f0) as u64).write(
+                memory, Box::new(Pointer::<PouchItem>::NULLPTR)
+            ).unwrap();
+            self.update(memory, &this);
+        }
+        if self.last_added_item == item {
+            (this.cast() + mem::offset_of!(Self, last_added_item) as u64).write(
+                memory, Box::new(Pointer::<PouchItem>::NULLPTR)
+            ).unwrap();
+            self.update(memory, &this);
+        }
+
+        self.item_lists.list1.erase(
+            memory, this.cast() + mem::offset_of!(Self, item_lists.list1) as u64, item
+        );
+
         self.sync(memory, this);
     }
 
@@ -90,7 +100,7 @@ impl PauseMenuDataMgr {
         (item.cast() + mem::offset_of!(PouchItem, in_inventory) as u64).write(
             memory, Box::new(false)
         ).unwrap();
-        self.update(memory, this);
+        self.update(memory, &this);
     }
 
     // Damage or shoot item
@@ -100,7 +110,7 @@ impl PauseMenuDataMgr {
         (item.cast() + mem::offset_of!(PouchItem, value) as u64).write(
             memory, Box::new(value.to_le())
         ).unwrap();
-        self.update(memory, this);
+        self.update(memory, &this);
     }
 
     // Equip or enable item
@@ -108,6 +118,7 @@ impl PauseMenuDataMgr {
         (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
             memory, Box::new(true)
         ).unwrap();
+        self.update(memory, &this);
         self.sync(memory, this);
     }
 
@@ -116,6 +127,7 @@ impl PauseMenuDataMgr {
         (item.cast() + mem::offset_of!(PouchItem, equipped) as u64).write(
             memory, Box::new(false)
         ).unwrap();
+        self.update(memory, &this);
         self.sync(memory, this);
     }
 
@@ -138,7 +150,7 @@ impl PauseMenuDataMgr {
 
     // Sync GameData
     pub fn sync(&mut self, memory: &mut Memory, this: Pointer<Self>) {
-        self.update(memory, this);
+        self.update(memory, &this);
     }
 
     // Save file
@@ -148,19 +160,22 @@ impl PauseMenuDataMgr {
 
     // Load file
     pub fn load(&mut self, memory: &mut Memory, this: Pointer<Self>, file: GameData) {
-        self.update(memory, this);
+        self.update(memory, &this);
     }
 
     // Break slots
     pub fn offset(&mut self, memory: &mut Memory, this: Pointer<Self>, num: u32) {
         let lists = self.item_lists;
 
-        (this.cast() + mem::offset_of!(Self, item_lists.list1.count) as u64).write(
-            memory, Box::new((i32::from_le(lists.list1.count) - num as i32).to_le())
-        ).unwrap();
-        (this.cast() + mem::offset_of!(Self, item_lists.list2.count) as u64).write(
-            memory, Box::new((i32::from_le(lists.list2.count) + num as i32).to_le())
-        ).unwrap();
-        self.update(memory, this);
+        (this.cast() + mem::offset_of!(Self, item_lists.list1.count) as u64).write(memory, Box::new(
+            (i32::from_le(lists.list1.count) - num as i32).to_le()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, item_lists.list2.count) as u64).write(memory, Box::new(
+            (i32::from_le(lists.list2.count) + num as i32).to_le()
+        )).unwrap();
+        self.update(memory, &this);
     }
 }
+
+impl Updatable for PauseMenuDataMgr {}

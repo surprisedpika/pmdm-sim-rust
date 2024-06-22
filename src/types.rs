@@ -4,6 +4,7 @@ use std::mem;
 use serde_json;
 
 use crate::mem::*;
+use crate::traits::*;
 
 pub const NUM_POUCH_ITEMS_MAX: i32 = 420;
 pub const NUM_INGREDIENTS_MAX: i32 = 5;
@@ -12,56 +13,62 @@ pub const NUM_POUCH_CATEGORIES: i32 = 7;
 pub const NUM_TAB_MAX: i32 = 50;
 pub const NUM_GRABBABLE_ITEMS: i32 = 5;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[repr(i32)]
 pub enum PouchItemType {
-    Sword = 0,
-    Bow = 1,
-    Arrow = 2,
-    Shield = 3,
-    ArmorHead = 4,
-    ArmorUpper = 5,
-    ArmorLower = 6,
-    Material = 7,
-    Food = 8,
-    KeyItem = 9,
-    Invalid = -1,
+    Sword,
+    Bow,
+    Arrow,
+    Shield,
+    ArmorHead,
+    ArmorUpper,
+    ArmorLower,
+    Material,
+    Food,
+    KeyItem,
+    #[default] Invalid,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for PouchItemType {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(i32)]
 pub enum PouchCategory {
-    Sword = 0,
-    Bow = 1,
-    Shield = 2,
-    Armor = 3,
-    Material = 4,
-    Food = 5,
-    KeyItem = 6,
-    Invalid = -1,
+    Sword,
+    Bow,
+    Shield,
+    Armor,
+    Material,
+    Food,
+    KeyItem,
+    #[default] Invalid,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for PouchCategory {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(i32)]
 pub enum ItemUse {
-    WeaponSmallSword = 0,
-    WeaponLargeSword = 1,
-    WeaponSpear = 2,
-    WeaponBow = 3,
-    WeaponShield = 4,
-    ArmorHead = 5,
-    ArmorLower = 6,
-    ArmorUpper = 7,
-    Item = 8,
-    ImportantItem = 9,
-    CureItem = 10,
-    Invalid = -1,
+    WeaponSmallSword,
+    WeaponLargeSword,
+    WeaponSpear,
+    WeaponBow,
+    WeaponShield,
+    ArmorHead,
+    ArmorLower,
+    ArmorUpper,
+    Item,
+    ImportantItem,
+    CureItem,
+    #[default] Invalid,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for ItemUse {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(u32)]
 pub enum WeaponModifier {
-    None = 0x0,
+    #[default] None,
     AddAtk = 0x1,
     AddLife = 0x2,
     AddCrit = 0x4,
@@ -74,18 +81,51 @@ pub enum WeaponModifier {
     IsYellow = 0x80000000,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for WeaponModifier {}
+
+#[derive(Clone, Copy, Default)]
+#[repr(i32)]
+pub enum CookEffectId {
+    #[default] None = -1,
+    LifeRecover = 1,
+    LifeMaxUp,
+    ResistHot = 4,
+    ResistCold,
+    ResistElectric,
+    AttackUp = 10,
+    DefenseUp,
+    Quietness,
+    MovingSpeed,
+    GutsRecover,
+    ExGutsMaxUp,
+    Fireproof,
+}
+
+impl Updatable for CookEffectId {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct ListNode {
-    pub prev: Pointer<ListNode>,
-    pub next: Pointer<ListNode>,
+    pub prev: Pointer<Self>,
+    pub next: Pointer<Self>,
+}
+
+impl Updatable for ListNode {}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct FixedSafeStringVTable {
+    pub super_dtor: Pointer,
+    pub super_assure_termination_impl: Pointer,
+    pub dtor: Pointer,
+    pub assure_termination_impl: Pointer,
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct FixedSafeString<const L: usize> {
-    pub vptr: Pointer<Pointer>,
-    pub string_top: Pointer,
+    pub vptr: Pointer<FixedSafeStringVTable>,
+    pub string_top: Pointer<i8>,
     pub buffer_size: i32,
     pub buffer: [u8; L],
 }
@@ -101,7 +141,33 @@ impl<const L: usize> ToString for FixedSafeString<L> {
     }
 }
 
-#[derive(Clone, Copy)]
+impl<const L: usize> Updatable for FixedSafeString<L> {}
+
+impl<const L: usize> Constructor for FixedSafeString<L> where [(); mem::size_of::<Self>()]: {
+    fn ctor(&mut self, memory: &mut Memory, this: Pointer<Self>) {
+        (this.cast() + mem::offset_of!(Self, string_top) as u64).write(memory, Box::new((
+            this.cast::<i8>() + mem::offset_of!(Self, buffer) as u64
+        ).to_le())).unwrap();
+        self.update(memory, &this);
+
+        (this.cast() + mem::offset_of!(Self, buffer_size) as u64).write(memory, Box::new((
+            L as i32
+        ).to_le())).unwrap();
+        self.update(memory, &this);
+        **(self.vptr.cast::<Pointer>() + mem::offset_of!(
+            FixedSafeStringVTable, assure_termination_impl
+        ) as u64).read(memory).unwrap();
+        (self.string_top.to_ne() + i32::from_le(self.buffer_size) as u64 - 1).write(
+            memory, Box::new(Default::default())
+        ).unwrap();
+        self.update(memory, &this);
+
+        self.string_top.to_ne().write(memory, Box::new(Default::default())).unwrap();
+        self.update(memory, &this);
+    }
+}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct CookData {
     pub health_recover: i32,
@@ -111,7 +177,9 @@ pub struct CookData {
     pub effect_level: f32,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for CookData {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct WeaponData {
     pub modifier_value: u32,
@@ -119,41 +187,127 @@ pub struct WeaponData {
     pub modifier: u32,
 }
 
+impl Updatable for WeaponData {}
+
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub union Data {
-    pub cook: mem::ManuallyDrop<CookData>,
-    pub weapon: mem::ManuallyDrop<WeaponData>,
+    pub cook: CookData,
+    pub weapon: WeaponData,
 }
 
-#[derive(Clone, Copy)]
+impl Default for Data { fn default() -> Self { unsafe { mem::zeroed() } } }
+
+impl Updatable for Data {}
+
+#[derive(Clone, Copy, Default)]
+#[repr(C)]
+pub struct FreeListNode {
+    pub next_free: Pointer<Self>,
+}
+
+impl Updatable for FreeListNode {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct FreeList {
-    pub free: Pointer,
+    pub free: Pointer<FreeListNode>,
     pub work: Pointer,
 }
 
+impl Updatable for FreeList {}
+
+#[derive(Clone, Copy, Default)]
+#[repr(C)]
+pub struct ObjArrayWorkNode<T> {
+    pub item: T,
+    pub pointer: Pointer<T>,
+}
+
+impl<T> Updatable for ObjArrayWorkNode<T> {}
+
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct Node<T> {
-    pub next_node: Pointer<Node<T>>,
-    pub elem: T,
+pub union ObjArrayNode<T> where T: Copy {
+    pub next_node: Pointer<Self>,
+    pub item: T,
+}
+
+impl<T> Default for ObjArrayNode<T> where T: Copy {
+    fn default() -> Self { unsafe { mem::zeroed() } }
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
-pub struct FixedObjArray<T, const L: i32> where [(); L as usize]: {
+pub struct FixedObjArray<T, const N: i32> where [(); N as usize]: {
     pub ptr_num: i32,
     pub ptr_num_max: i32,
     pub ptrs: Pointer<Pointer<T>>,
     pub free_list: FreeList,
-    pub work: [Node<T>; L as usize],
+    pub work: [ObjArrayWorkNode<T>; N as usize],
+}
+
+impl<T, const N: i32> Updatable for FixedObjArray<T, N> where [(); N as usize]: {}
+
+impl<T, const N: i32> Constructor for FixedObjArray<T, N> where [(); N as usize]:, T: Copy {
+    fn ctor(&mut self, memory: &mut Memory, this: Pointer<Self>) {
+        let element_size = mem::size_of::<ObjArrayNode<T>>() as i32;
+
+        let idx_multiplier = element_size / 0x8;
+        (this.cast() + mem::offset_of!(Self, work) as u64).write(memory, unsafe { Box::from_raw(
+            vec![u64::default(); (N * idx_multiplier) as usize].as_mut_ptr()
+        ) }).unwrap();
+        self.update(memory, &this);
+        let ptrs = this.cast::<Pointer>() + mem::offset_of!(Self, work) as u64;
+
+        (this.cast() + mem::offset_of!(Self, work) as u64).write(memory, Box::new(
+            FreeListNode::default()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, free_list.free) as u64).write(memory, Box::new(
+            this.cast::<FreeListNode>() + mem::offset_of!(Self, work) as u64
+        )).unwrap();
+        self.update(memory, &this);
+
+        for i in 0..N - 1 {
+            let next_free = ptrs.cast::<FreeListNode>() + ((i + 1) * idx_multiplier) as u64;
+            next_free.write(memory, Box::new(Default::default())).unwrap();
+            self.update(memory, &this);
+            (ptrs.cast() + (i * idx_multiplier) as u64).write(memory, Box::new(FreeListNode {
+                next_free
+            })).unwrap();
+            self.update(memory, &this);
+        }
+
+        (ptrs.cast() + ((N - 1) * idx_multiplier) as u64).write(memory, Box::new(
+            FreeListNode::default()
+        )).unwrap();
+        self.update(memory, &this);
+
+        (this.cast() + mem::offset_of!(Self, free_list.work) as u64).write(memory, Box::new(
+            this.cast::<u8>() + mem::offset_of!(Self, work) as u64
+        )).unwrap();
+        self.update(memory, &this);
+
+        (this.cast() + mem::offset_of!(Self, ptrs) as u64).write(memory, Box::new(
+            this.cast::<Pointer<T>>() + mem::offset_of!(Self, work) as u64 + element_size as u64
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, ptr_num) as u64).write(memory, Box::new(
+            i32::default()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, ptr_num_max) as u64).write(
+            memory, Box::new(N)
+        ).unwrap();
+        self.update(memory, &this);
+    }
 }
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct PouchItem {
-    pub vptr: Pointer,
+    pub vptr: Pointer<Pointer>,
     pub list_node: ListNode,
     pub item_type: PouchItemType,
     pub item_use: ItemUse,
@@ -165,11 +319,77 @@ pub struct PouchItem {
     pub ingredients: FixedObjArray<FixedSafeString<64>, NUM_INGREDIENTS_MAX>,
 }
 
+impl Updatable for PouchItem {}
+
+impl Constructor for PouchItem {
+    fn ctor(&mut self, memory: &mut Memory, this: Pointer<Self>) {
+        (this.cast() + mem::offset_of!(Self, list_node) as u64).write(memory, Box::new(
+            ListNode::default()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, item_type) as u64).write(memory, Box::new((
+            PouchItemType::default() as i32
+        ).to_le())).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, item_use) as u64).write(memory, Box::new((
+            ItemUse::default() as i32
+        ).to_le())).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, value) as u64).write(memory, Box::new(
+            i32::default()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, equipped) as u64).write(memory, Box::new(
+            bool::default()
+        )).unwrap();
+        self.update(memory, &this);
+        (this.cast() + mem::offset_of!(Self, in_inventory) as u64).write(
+            memory, Box::new(true)
+        ).unwrap();
+        self.update(memory, &this);
+        self.name.ctor(memory, this.cast() + mem::offset_of!(Self, name) as u64);
+        (this.cast() + mem::offset_of!(Self, data) as u64).write(memory, Box::new(
+            Data::default()
+        )).unwrap();
+        self.update(memory, &this);
+        self.ingredients.ctor(memory, this.cast() + mem::offset_of!(Self, ingredients) as u64);
+        (this.cast() + mem::offset_of!(Self, data.cook.effect_id) as u64).write(memory, Box::new((
+            CookEffectId::default() as i32 as f32
+        ).to_le_bytes())).unwrap();
+        (this.cast() + mem::offset_of!(Self, data.cook.effect_level) as u64).write(
+            memory, Box::new(f32::default().to_le_bytes())
+        ).unwrap();
+        self.update(memory, &this);
+
+        for _ in 0..NUM_INGREDIENTS_MAX {
+            let ptr = self.ingredients.free_list.free.cast::<FixedSafeString<64>>();
+            if ptr != Pointer::NULLPTR {
+                (this.cast() + mem::offset_of!(Self, ingredients.free_list.free) as u64).write(
+                    memory, ptr.cast::<Pointer<FreeListNode>>().read(memory).unwrap()
+                ).unwrap();
+                self.update(memory, &this);
+            }
+
+            ptr.read(memory).unwrap().ctor(memory, ptr);
+            self.update(memory, &this);
+
+            (this.cast() + mem::offset_of!(Self, ingredients.ptrs) as u64 + (
+                self.ingredients.ptr_num * 0x8
+            ) as u64).write(memory, Box::new(ptr)).unwrap();
+            self.update(memory, &this);
+            (this.cast() + mem::offset_of!(Self, ingredients.ptr_num) as u64).write(
+                memory, Box::new(self.ingredients.ptr_num + 1)
+            ).unwrap();
+            self.update(memory, &this);
+        }
+    }
+}
+
 pub fn translate_name(actor_name: &str, lang_data: serde_json::Value) -> Option<String> {
     lang_data.get(actor_name)?.as_str().map(String::from)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct MutexType {
     pub state: u8,
@@ -180,11 +400,13 @@ pub struct MutexType {
     pub mutex: i32,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for MutexType {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct CriticalSection {
     // IDisposer
-    pub vptr: Pointer,
+    pub vptr: Pointer<Pointer>,
     pub disposer_heap: Pointer,
     pub list_node: ListNode,
 
@@ -192,7 +414,9 @@ pub struct CriticalSection {
     pub critical_section_inner: MutexType,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for CriticalSection {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct OffsetList<T> {
     // ListImpl
@@ -206,21 +430,61 @@ pub struct OffsetList<T> {
 }
 
 impl<T> OffsetList<T> {
-    pub fn nth(&self, n: i32, memory: &Memory) -> Pointer<T> {
+    pub fn erase(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<T>) where [
+        (); mem::size_of::<Self>()
+    ]: {
+        let node_ptr = (item + self.offset as u64).cast::<ListNode>();
+        let node = node_ptr.read(memory).unwrap();
+
+        if node.prev != Pointer::NULLPTR {
+            (node.prev + mem::offset_of!(ListNode, next) as u64).write(
+                memory, node.next.read(memory).unwrap()
+            ).unwrap();
+            self.update(memory, &this);
+        }
+        if node.next != Pointer::NULLPTR {
+            (node.next + mem::offset_of!(ListNode, prev) as u64).write(
+                memory, node.prev.read(memory).unwrap()
+            ).unwrap();
+            self.update(memory, &this);
+        }
+
+        (node_ptr.cast() + mem::offset_of!(ListNode, prev) as u64).write(memory, Box::new(
+            ListNode::default()
+        )).unwrap();
+        self.update(memory, &this);
+
+        (this.cast() + mem::offset_of!(Self, count) as u64).write(memory, Box::new((i32::from_le(
+            self.count
+        ) - 1).to_le())).unwrap();
+        self.update(memory, &this);
+    }
+
+    pub fn nth(&self, memory: &Memory, n: i32) -> Pointer<T> {
         if self.count as u32 <= n as u32 { return Pointer::new(0u64); }
         let mut node = self.start_end.next;
         for _ in 0..n { node = node.read(memory).unwrap().next; }
         (node - self.offset as u64).cast()
     }
 
-    pub fn sort(&self, memory: &mut Memory, cmp: fn(&Memory, Pointer<T>, Pointer<T>) -> i32) {}
+    pub fn sort(&mut self, memory: &mut Memory, this: Pointer<Self>, cmp: fn(
+        &Memory, Pointer<T>, Pointer<T>
+    ) -> i32) {}
 }
+
+impl<T> Updatable for OffsetList<T> {}
 
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct SafeArray<T, const N: i32> where [(); N as usize]: {
     pub buffer: [T; N as usize],
 }
+
+impl<T: Copy + Default, const N: i32> Default for SafeArray<T, N> where [(); N as usize]: {
+    fn default() -> Self { Self { buffer: [Default::default(); N as usize] } }
+}
+
+impl<T, const N: i32> Updatable for SafeArray<T, N> where [(); N as usize]: {}
 
 #[derive(Clone, Copy)]
 #[repr(C)]
@@ -230,6 +494,8 @@ pub struct Lists {
     pub buffer: SafeArray<PouchItem, NUM_POUCH_ITEMS_MAX>,
 }
 
+impl Updatable for Lists {}
+
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct GrabbedItemInfo {
@@ -238,18 +504,24 @@ pub struct GrabbedItemInfo {
     _9: bool,
 }
 
-#[derive(Clone, Copy)]
+impl Updatable for GrabbedItemInfo {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct TypedBitFlag<Enum> {
     bits: Enum,
 }
 
-#[derive(Clone, Copy)]
+impl<Enum> Updatable for TypedBitFlag<Enum> {}
+
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct WeaponModifierInfo {
     flags: TypedBitFlag<WeaponModifier>,
     value: i32,
 }
+
+impl Updatable for WeaponModifierInfo {}
 
 #[derive(Clone)]
 pub struct GameDataItem {

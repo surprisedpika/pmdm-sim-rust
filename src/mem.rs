@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::{stdin, stdout, Write};
 use std::marker::PhantomData;
 use std::mem;
 use std::ops;
@@ -17,18 +18,18 @@ impl Memory {
     } }
 
     // Read object from memory
-    pub fn read<T>(&self, address: u64) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
+    pub fn read<T>(&self, address: u64) -> Result<Box<T>, String> {
         let end = address + mem::size_of::<T>() as u64;
 
         // Check if object is in ASLR range
         if address < ASLR_START || end > ASLR_END {
-            return Err(format!("Address range {:x}-{:x} is outside ASLR range", address, end));
+            return Err(format!("Address range 0x{:x}-0x{:x} is outside ASLR range", address, end));
         }
 
         // Find block containing address range
         let (start, block) = self.memory.iter().find(
             |&(start, block)| *start <= address && end - *start <= block.len() as u64
-        ).ok_or(format!("Uninitialized memory in range {:x}-{:x}", address, end))?;
+        ).ok_or(format!("Uninitialized memory in range 0x{:x}-0x{:x}", address, end))?;
 
         // Read and box object
         Ok(unsafe { Box::from_raw(mem::transmute::<*mut u8, *mut T>(Box::into_raw(block[
@@ -42,7 +43,7 @@ impl Memory {
 
         // Check if object is in ASLR range
         if address < ASLR_START || end > ASLR_END {
-            return Err(format!("Address range {:x}-{:x} is outside ASLR range", address, end));
+            return Err(format!("Address range 0x{:x}-0x{:x} is outside ASLR range", address, end));
         }
 
         // Find block containing address range, if it exists
@@ -104,7 +105,7 @@ impl Memory {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 #[repr(C)]
 pub struct Pointer<T = u8> {
     pub address: u64,
@@ -116,9 +117,7 @@ impl<T> Pointer<T> {
     pub fn new(address: u64) -> Self { Self { address, phantom: PhantomData } }
 
     // Dereference and read from pointer
-    pub fn read(&self, memory: &Memory) -> Result<Box<T>, String> where [(); mem::size_of::<T>()]: {
-        memory.read(self.address)
-    }
+    pub fn read(&self, memory: &Memory) -> Result<Box<T>, String> { memory.read(self.address) }
 
     // Dereference and write to pointer
     pub fn write(&self, memory: &mut Memory, object: Box<T>) -> Result<(), String> {
@@ -130,8 +129,13 @@ impl<T> Pointer<T> {
         address: u64::from_le(self.address), phantom: PhantomData
     } }
 
+    // Convert to little-endian
+    pub fn to_le(&self) -> Self { Self { address: self.address.to_le(), phantom: PhantomData } }
+
     // Cast pointer type
     pub fn cast<U>(&self) -> Pointer<U> { Pointer { address: self.address, phantom: PhantomData } }
+
+    pub const NULLPTR: Self = Self { address: 0u64, phantom: PhantomData };
 }
 
 impl<T> ops::Add<u64> for Pointer<T> {
@@ -144,6 +148,35 @@ impl<T> ops::Sub<u64> for Pointer<T> {
     type Output = Self;
 
     fn sub(self, rhs: u64) -> Self { Self { address: self.address - rhs, phantom: PhantomData } }
+}
+
+impl<T> ops::Deref for Pointer<T> {
+    type Target = ();
+
+    fn deref(&self) -> &() {
+        if self.address < ASLR_START || self.address + mem::size_of::<T>() as u64 > ASLR_END {
+            if mem::size_of::<T>() == 1 { panic!(
+                "Address 0x{:x} is outside ASLR range", self.address
+            ); }
+            else { panic!(
+                "Address range 0x{:x}-0x{:x} is outside ASLR range", self.address,
+                self.address + mem::size_of::<T>() as u64
+            ); }
+        }
+
+        print!("Attempted to dereference 0x{:x}, proceed? (Y/n) ", self.address);
+        stdout().flush().unwrap();
+        let mut proceed = String::new();
+        stdin().read_line(&mut proceed).unwrap();
+
+        if let Some(choice) = proceed.chars().next() {
+            if let Some('n') = choice.to_lowercase().next() { panic!(
+                "Invalid address 0x{:x} dereferenced", self.address
+            ); }
+        }
+
+        &()
+    }
 }
 
 impl<T> PartialEq for Pointer<T> {
