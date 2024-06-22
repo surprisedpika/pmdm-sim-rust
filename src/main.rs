@@ -3,7 +3,6 @@
 #![feature(map_try_insert)]
 #![feature(offset_of_nested)]
 #![feature(slice_ptr_get)]
-#![feature(trivial_bounds)]
 
 mod fs;
 mod mem;
