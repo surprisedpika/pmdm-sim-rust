@@ -7,9 +7,7 @@ use std::ops;
 const ASLR_START: u64 = 0x8000000;
 const ASLR_END: u64 = 0x8000000000;
 
-pub struct Memory {
-    memory: HashMap<u64, Vec<u8>>,
-}
+pub struct Memory { memory: HashMap<u64, Vec<u8>> }
 
 impl Memory {
     // Initialize memory with data
