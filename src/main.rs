@@ -1,4 +1,5 @@
 #![allow(incomplete_features)]
+#![feature(effects)]
 #![feature(generic_const_exprs)]
 #![feature(map_try_insert)]
 #![feature(offset_of_nested)]
