@@ -135,7 +135,7 @@ impl<T> Pointer<T> {
     // Cast pointer type
     pub fn cast<U>(&self) -> Pointer<U> { Pointer { address: self.address, phantom: PhantomData } }
 
-    pub const NULLPTR: Self = Default::default();
+    pub const NULLPTR: Self = Self { address: Default::default(), phantom: PhantomData };
 }
 
 impl<T> ops::Add<u64> for Pointer<T> {
