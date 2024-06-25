@@ -61,11 +61,11 @@ impl PauseMenuDataMgr {
 
     fn reset_item(&mut self, memory: &mut Memory, this: Pointer<Self>) {
         (this.cast() + mem::offset_of!(Self, newly_added_item.item_type) as u64).write(
-            memory, Box::new(PouchItemType::default())
+            memory, Box::new((PouchItemType::default() as i32).to_le())
         ).unwrap();
         self.update(memory, &this);
         (this.cast() + mem::offset_of!(Self, newly_added_item.item_use) as u64).write(
-            memory, Box::new(ItemUse::default())
+            memory, Box::new((ItemUse::default() as i32).to_le())
         ).unwrap();
         self.update(memory, &this);
         (this.cast() + mem::offset_of!(Self, newly_added_item.value) as u64).write(
