@@ -13,7 +13,7 @@ pub const NUM_POUCH_CATEGORIES: i32 = 7;
 pub const NUM_TAB_MAX: i32 = 50;
 pub const NUM_GRABBABLE_ITEMS: i32 = 5;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 #[repr(i32)]
 pub enum PouchItemType {
     Sword,
@@ -31,7 +31,7 @@ pub enum PouchItemType {
 
 impl Updatable for PouchItemType {}
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 #[repr(i32)]
 pub enum PouchCategory {
     Sword,
@@ -46,7 +46,7 @@ pub enum PouchCategory {
 
 impl Updatable for PouchCategory {}
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 #[repr(i32)]
 pub enum ItemUse {
     WeaponSmallSword,
@@ -65,7 +65,7 @@ pub enum ItemUse {
 
 impl Updatable for ItemUse {}
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 #[repr(u32)]
 pub enum WeaponModifier {
     #[default] None,
@@ -83,7 +83,7 @@ pub enum WeaponModifier {
 
 impl Updatable for WeaponModifier {}
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 #[repr(i32)]
 pub enum CookEffectId {
     #[default] None = -1,
@@ -130,6 +130,49 @@ pub struct FixedSafeString<const L: usize> {
     pub buffer: [u8; L],
 }
 
+impl<const L: usize> FixedSafeString<L> {
+    pub fn assure_termination_impl(&mut self, memory: &mut Memory, this: Pointer<Self>) {
+        **(self.vptr.cast::<Pointer>() + mem::offset_of!(
+            FixedSafeStringVTable, assure_termination_impl
+        ) as u64).read(memory).unwrap();
+        (self.string_top.to_ne() + i32::from_le(self.buffer_size) as u64 - 1).write(
+            memory, Box::new(Default::default())
+        ).unwrap();
+        self.update(memory, &this);
+    }
+
+    pub fn is_equal(&mut self, memory: &mut Memory, this: Pointer<Self>, other: Self) -> bool {
+        self.assure_termination_impl(memory, this);
+        if self.string_top == other.string_top { return true; }
+
+        for i in 0..=0x80000 {
+            let current = *(self.string_top + i).read(memory).unwrap();
+
+            if current != *(other.string_top + i).read(memory).unwrap() { return false; }
+            if current == i8::default() { return true; }
+        }
+
+        false
+    }
+
+    pub fn is_equal_str(&mut self, memory: &mut Memory, this: Pointer<Self>, other: &str) -> bool {
+        self.assure_termination_impl(memory, this);
+
+        for i in 0..=0x80000 {
+            let current = *(self.string_top + i).read(memory).unwrap();
+
+            if current != other.as_bytes()[i as usize] as i8 { return false; }
+            if current == i8::default() { return true; }
+        }
+
+        false
+    }
+
+    pub fn clear(&mut self, memory: &mut Memory) {
+        self.string_top.write(memory, Box::new(Default::default())).unwrap();
+    }
+}
+
 impl<const L: usize> ToString for FixedSafeString<L> {
     fn to_string(&self) -> String {
         let trimmed_string: Vec<u8> = self.buffer
@@ -154,13 +197,7 @@ impl<const L: usize> Constructor for FixedSafeString<L> where [(); mem::size_of:
             L as i32
         ).to_le())).unwrap();
         self.update(memory, &this);
-        **(self.vptr.cast::<Pointer>() + mem::offset_of!(
-            FixedSafeStringVTable, assure_termination_impl
-        ) as u64).read(memory).unwrap();
-        (self.string_top.to_ne() + i32::from_le(self.buffer_size) as u64 - 1).write(
-            memory, Box::new(Default::default())
-        ).unwrap();
-        self.update(memory, &this);
+        self.assure_termination_impl(memory, this);
 
         self.string_top.to_ne().write(memory, Box::new(Default::default())).unwrap();
         self.update(memory, &this);
@@ -196,7 +233,7 @@ pub union Data {
     pub weapon: WeaponData,
 }
 
-impl Default for Data { fn default() -> Self { unsafe { mem::zeroed() } } }
+impl Default for Data { fn default() -> Self { Self { cook: Default::default() } } }
 
 impl Updatable for Data {}
 
@@ -356,6 +393,7 @@ impl Constructor for PouchItem {
         (this.cast() + mem::offset_of!(Self, data.cook.effect_id) as u64).write(memory, Box::new((
             CookEffectId::default() as i32 as f32
         ).to_le_bytes())).unwrap();
+        self.update(memory, &this);
         (this.cast() + mem::offset_of!(Self, data.cook.effect_level) as u64).write(
             memory, Box::new(f32::default().to_le_bytes())
         ).unwrap();
@@ -430,6 +468,18 @@ pub struct OffsetList<T> {
 }
 
 impl<T> OffsetList<T> {
+    fn obj_to_list_node(&self, obj: Pointer<T>) -> Pointer<ListNode> {
+        (obj + self.offset as u64).cast()
+    }
+
+    fn list_node_to_obj(&self, node: Pointer<ListNode>) -> Pointer<T> {
+        (node - self.offset as u64).cast()
+    }
+
+    fn list_node_to_obj_with_null_check(&self, node: Pointer<ListNode>) -> Pointer<T> {
+        if node == Pointer::NULLPTR { Pointer::NULLPTR } else { self.list_node_to_obj(node) }
+    }
+
     pub fn erase(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<T>) where [
         (); mem::size_of::<Self>()
     ]: {
@@ -460,11 +510,23 @@ impl<T> OffsetList<T> {
         self.update(memory, &this);
     }
 
+    pub fn prev(&self, memory: &Memory, this: Pointer<Self>, obj: Pointer<T>) -> Pointer<T> {
+        let prev_node = self.obj_to_list_node(obj).read(memory).unwrap().prev;
+        if prev_node == this.cast() + mem::offset_of!(Self, start_end) as u64 { Pointer::NULLPTR }
+        else { self.list_node_to_obj(prev_node) }
+    }
+
+    pub fn next(&self, memory: &Memory, this: Pointer<Self>, obj: Pointer<T>) -> Pointer<T> {
+        let next_node = self.obj_to_list_node(obj).read(memory).unwrap().next;
+        if next_node == this.cast() + mem::offset_of!(Self, start_end) as u64 { Pointer::NULLPTR }
+        else { self.list_node_to_obj(next_node) }
+    }
+
     pub fn nth(&self, memory: &Memory, n: i32) -> Pointer<T> {
         if self.count as u32 <= n as u32 { return Pointer::new(0u64); }
         let mut node = self.start_end.next;
         for _ in 0..n { node = node.read(memory).unwrap().next; }
-        (node - self.offset as u64).cast()
+        self.list_node_to_obj_with_null_check(node)
     }
 
     pub fn sort(&mut self, memory: &mut Memory, this: Pointer<Self>, cmp: fn(
