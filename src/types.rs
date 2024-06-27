@@ -132,7 +132,7 @@ pub struct FixedSafeString<const L: usize> {
 
 impl<const L: usize> FixedSafeString<L> {
     pub fn assure_termination_impl(&mut self, memory: &mut Memory, this: Pointer<Self>) {
-        **(self.vptr.cast::<Pointer>() + mem::offset_of!(
+        **(self.vptr.cast::<Pointer>().to_ne() + mem::offset_of!(
             FixedSafeStringVTable, assure_termination_impl
         ) as u64).read(memory).unwrap();
         (self.string_top.to_ne() + i32::from_le(self.buffer_size) as u64 - 1).write(
@@ -146,9 +146,9 @@ impl<const L: usize> FixedSafeString<L> {
         if self.string_top == other.string_top { return true; }
 
         for i in 0..=0x80000 {
-            let current = *(self.string_top + i).read(memory).unwrap();
+            let current = *(self.string_top.to_ne() + i).read(memory).unwrap();
 
-            if current != *(other.string_top + i).read(memory).unwrap() { return false; }
+            if current != *(other.string_top.to_ne() + i).read(memory).unwrap() { return false; }
             if current == i8::default() { return true; }
         }
 
@@ -159,7 +159,7 @@ impl<const L: usize> FixedSafeString<L> {
         self.assure_termination_impl(memory, this);
 
         for i in 0..=0x80000 {
-            let current = *(self.string_top + i).read(memory).unwrap();
+            let current = *(self.string_top.to_ne() + i).read(memory).unwrap();
 
             if current != other.as_bytes()[i as usize] as i8 { return false; }
             if current == i8::default() { return true; }
@@ -169,7 +169,7 @@ impl<const L: usize> FixedSafeString<L> {
     }
 
     pub fn clear(&mut self, memory: &mut Memory) {
-        self.string_top.write(memory, Box::new(Default::default())).unwrap();
+        self.string_top.to_ne().write(memory, Box::new(Default::default())).unwrap();
     }
 }
 
@@ -301,9 +301,9 @@ impl<T, const N: i32> Constructor for FixedObjArray<T, N> where [(); N as usize]
             FreeListNode::default()
         )).unwrap();
         self.update(memory, &this);
-        (this.cast() + mem::offset_of!(Self, free_list.free) as u64).write(memory, Box::new(
+        (this.cast() + mem::offset_of!(Self, free_list.free) as u64).write(memory, Box::new((
             this.cast::<FreeListNode>() + mem::offset_of!(Self, work) as u64
-        )).unwrap();
+        ).to_le())).unwrap();
         self.update(memory, &this);
 
         for i in 0..N - 1 {
@@ -311,7 +311,7 @@ impl<T, const N: i32> Constructor for FixedObjArray<T, N> where [(); N as usize]
             next_free.write(memory, Box::new(Default::default())).unwrap();
             self.update(memory, &this);
             (ptrs.cast() + (i * idx_multiplier) as u64).write(memory, Box::new(FreeListNode {
-                next_free
+                next_free: next_free.to_le()
             })).unwrap();
             self.update(memory, &this);
         }
@@ -321,22 +321,22 @@ impl<T, const N: i32> Constructor for FixedObjArray<T, N> where [(); N as usize]
         )).unwrap();
         self.update(memory, &this);
 
-        (this.cast() + mem::offset_of!(Self, free_list.work) as u64).write(memory, Box::new(
+        (this.cast() + mem::offset_of!(Self, free_list.work) as u64).write(memory, Box::new((
             this.cast::<u8>() + mem::offset_of!(Self, work) as u64
-        )).unwrap();
+        ).to_le())).unwrap();
         self.update(memory, &this);
 
-        (this.cast() + mem::offset_of!(Self, ptrs) as u64).write(memory, Box::new(
+        (this.cast() + mem::offset_of!(Self, ptrs) as u64).write(memory, Box::new((
             this.cast::<Pointer<T>>() + mem::offset_of!(Self, work) as u64 + element_size as u64
-        )).unwrap();
+        ).to_le())).unwrap();
         self.update(memory, &this);
         (this.cast() + mem::offset_of!(Self, ptr_num) as u64).write(memory, Box::new(
             i32::default()
         )).unwrap();
         self.update(memory, &this);
-        (this.cast() + mem::offset_of!(Self, ptr_num_max) as u64).write(
-            memory, Box::new(N)
-        ).unwrap();
+        (this.cast() + mem::offset_of!(Self, ptr_num_max) as u64).write(memory, Box::new(
+            N.to_le()
+        )).unwrap();
         self.update(memory, &this);
     }
 }
@@ -400,7 +400,7 @@ impl Constructor for PouchItem {
         self.update(memory, &this);
 
         for _ in 0..NUM_INGREDIENTS_MAX {
-            let ptr = self.ingredients.free_list.free.cast::<FixedSafeString<64>>();
+            let ptr = self.ingredients.free_list.free.cast::<FixedSafeString<64>>().to_ne();
             if ptr != Pointer::NULLPTR {
                 (this.cast() + mem::offset_of!(Self, ingredients.free_list.free) as u64).write(
                     memory, ptr.cast::<Pointer<FreeListNode>>().read(memory).unwrap()
@@ -411,12 +411,12 @@ impl Constructor for PouchItem {
             ptr.read(memory).unwrap().ctor(memory, ptr);
             self.update(memory, &this);
 
-            (this.cast() + mem::offset_of!(Self, ingredients.ptrs) as u64 + (
-                self.ingredients.ptr_num * 0x8
-            ) as u64).write(memory, Box::new(ptr)).unwrap();
+            (this.cast() + mem::offset_of!(Self, ingredients.ptrs) as u64 + (i32::from_le(
+                self.ingredients.ptr_num
+            ) * 0x8) as u64).write(memory, Box::new(ptr.to_le())).unwrap();
             self.update(memory, &this);
             (this.cast() + mem::offset_of!(Self, ingredients.ptr_num) as u64).write(
-                memory, Box::new(self.ingredients.ptr_num + 1)
+                memory, Box::new((i32::from_le(self.ingredients.ptr_num) + 1).to_le())
             ).unwrap();
             self.update(memory, &this);
         }
@@ -483,18 +483,18 @@ impl<T> OffsetList<T> {
     pub fn erase(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<T>) where [
         (); mem::size_of::<Self>()
     ]: {
-        let node_ptr = (item + self.offset as u64).cast::<ListNode>();
+        let node_ptr = (item + i32::from_le(self.offset) as u64).cast::<ListNode>();
         let node = node_ptr.read(memory).unwrap();
 
         if node.prev != Pointer::NULLPTR {
-            (node.prev + mem::offset_of!(ListNode, next) as u64).write(
-                memory, node.next.read(memory).unwrap()
+            (node.prev.to_ne() + mem::offset_of!(ListNode, next) as u64).write(
+                memory, node.next.to_ne().read(memory).unwrap()
             ).unwrap();
             self.update(memory, &this);
         }
         if node.next != Pointer::NULLPTR {
-            (node.next + mem::offset_of!(ListNode, prev) as u64).write(
-                memory, node.prev.read(memory).unwrap()
+            (node.next.to_ne() + mem::offset_of!(ListNode, prev) as u64).write(
+                memory, node.prev.to_ne().read(memory).unwrap()
             ).unwrap();
             self.update(memory, &this);
         }
@@ -511,21 +511,21 @@ impl<T> OffsetList<T> {
     }
 
     pub fn prev(&self, memory: &Memory, this: Pointer<Self>, obj: Pointer<T>) -> Pointer<T> {
-        let prev_node = self.obj_to_list_node(obj).read(memory).unwrap().prev;
+        let prev_node = self.obj_to_list_node(obj).read(memory).unwrap().prev.to_ne();
         if prev_node == this.cast() + mem::offset_of!(Self, start_end) as u64 { Pointer::NULLPTR }
         else { self.list_node_to_obj(prev_node) }
     }
 
     pub fn next(&self, memory: &Memory, this: Pointer<Self>, obj: Pointer<T>) -> Pointer<T> {
-        let next_node = self.obj_to_list_node(obj).read(memory).unwrap().next;
+        let next_node = self.obj_to_list_node(obj).read(memory).unwrap().next.to_ne();
         if next_node == this.cast() + mem::offset_of!(Self, start_end) as u64 { Pointer::NULLPTR }
         else { self.list_node_to_obj(next_node) }
     }
 
     pub fn nth(&self, memory: &Memory, n: i32) -> Pointer<T> {
-        if self.count as u32 <= n as u32 { return Pointer::new(0u64); }
-        let mut node = self.start_end.next;
-        for _ in 0..n { node = node.read(memory).unwrap().next; }
+        if i32::from_le(self.count) as u32 <= n as u32 { return Pointer::new(0u64); }
+        let mut node = self.start_end.next.to_ne();
+        for _ in 0..n { node = node.read(memory).unwrap().next.to_ne(); }
         self.list_node_to_obj_with_null_check(node)
     }
 

@@ -56,7 +56,9 @@ pub struct PauseMenuDataMgr {
 impl PauseMenuDataMgr {
     fn get_item_head(&self, memory: &Memory, category: PouchCategory) -> Pointer<PouchItem> {
         let p_head = self.list_heads.buffer[category as u32 as usize];
-        if p_head != Pointer::NULLPTR { *p_head.read(memory).unwrap() } else { Pointer::NULLPTR }
+        if p_head != Pointer::NULLPTR { *p_head.to_ne().read(memory).unwrap() } else {
+            Pointer::NULLPTR
+        }
     }
 
     fn reset_item(&mut self, memory: &mut Memory, this: Pointer<Self>) {
@@ -100,7 +102,9 @@ impl PauseMenuDataMgr {
             Pointer::<PouchItem>::NULLPTR
         )).unwrap();
         self.update(memory, &this);
-        (this.cast() + mem::offset_of!(Self, _444f8) as u64).write(memory, Box::new(-1)).unwrap();
+        (this.cast() + mem::offset_of!(Self, _444f8) as u64).write(memory, Box::new(
+            -1i32.to_le()
+        )).unwrap();
         self.update(memory, &this);
         self.reset_item(memory, this);
     }
@@ -136,14 +140,14 @@ impl PauseMenuDataMgr {
         if list1.count == 0 { return; }
 
         // Traverse list1 until mStartEnd reached
-        let mut node = list1.start_end.next;
+        let mut node = list1.start_end.next.to_ne();
         let mut visited_nodes = vec![node];
 
-        while node != (this + mem::offset_of!(Self, item_lists.list1.start_end) as u64).cast() {
+        while node != (this.cast() + mem::offset_of!(Self, item_lists.list1.start_end) as u64) {
             // Prevent cyclic nodes from hanging
             if visited_nodes.contains(&node) { panic!("Game has frozen due to cyclic nodes"); }
             visited_nodes.push(node);
-            node = node.read(memory).unwrap().next;
+            node = node.read(memory).unwrap().next.to_ne();
         }
     }
 
@@ -153,14 +157,14 @@ impl PauseMenuDataMgr {
         if list2.count == 0 { return; }
 
         // Traverse list1 until mStartEnd reached
-        let mut node = list2.start_end.next;
+        let mut node = list2.start_end.next.to_ne();
         let mut visited_nodes = vec![node];
 
-        while node != (this + mem::offset_of!(Self, item_lists.list2.start_end) as u64).cast() {
+        while node != (this.cast() + mem::offset_of!(Self, item_lists.list2.start_end) as u64) {
             // Prevent cyclic nodes from hanging
             if visited_nodes.contains(&node) { panic!("Game has frozen due to cyclic nodes"); }
             visited_nodes.push(node);
-            node = node.read(memory).unwrap().next;
+            node = node.read(memory).unwrap().next.to_ne();
         }
     }
 
@@ -171,11 +175,11 @@ impl PauseMenuDataMgr {
     ) {
         if item_type == PouchItemType::KeyItem && !REPEATABLE_KEY_ITEMS.contains(&name) {
             self.traverse_list1(memory, this);
-            let mut item_ptr = self.get_item_head(memory, PouchCategory::KeyItem);
+            let mut item_ptr = self.get_item_head(memory, PouchCategory::KeyItem).to_ne();
 
-            while item_ptr != Pointer::NULLPTR && item_ptr.read(
+            while item_ptr != Pointer::NULLPTR && i32::from_le(item_ptr.read(
                 memory
-            ).unwrap().item_type == PouchItemType::KeyItem {
+            ).unwrap().item_type as i32) == PouchItemType::KeyItem as i32 {
                 let mut item = item_ptr.read(memory).unwrap();
                 if item.in_inventory && item.name.is_equal_str(
                     memory, item_ptr.cast() + mem::offset_of!(PouchItem, name) as u64, name
@@ -189,12 +193,12 @@ impl PauseMenuDataMgr {
         }
         else if item_type == PouchItemType::Sword && name == MASTER_SWORD {
             self.traverse_list1(memory, this);
-            let mut item_ptr = self.get_item_head(memory, PouchCategory::Sword);
+            let mut item_ptr = self.get_item_head(memory, PouchCategory::Sword).to_ne();
 
             if item_ptr != Pointer::NULLPTR {
                 let mut item = item_ptr.read(memory).unwrap();
 
-                while item.item_type == PouchItemType::Sword {
+                while i32::from_le(item.item_type as i32) == PouchItemType::Sword as i32 {
                     if !item.in_inventory || !item.name.is_equal_str(
                         memory, item_ptr.cast() + mem::offset_of!(PouchItem, name) as u64, name
                     ) {
@@ -218,7 +222,9 @@ impl PauseMenuDataMgr {
                     item.update(memory, &item_ptr);
 
                     (this.cast() + mem::offset_of!(Self, last_added_item) as u64).write(
-                        memory, Box::new(if item.value > 0 { item_ptr } else { Pointer::NULLPTR })
+                        memory, Box::new(if i32::from_le(item.value) > 0 { item_ptr.to_le() } else {
+                            Pointer::NULLPTR
+                        })
                     ).unwrap();
                     self.update(memory, &this);
                     self.reset_item(memory, this);
@@ -236,13 +242,13 @@ impl PauseMenuDataMgr {
 
     // Remove item slot while unpaused
     pub fn remove(&mut self, memory: &mut Memory, this: Pointer<Self>, item: Pointer<PouchItem>) {
-        if self.item_444f0 == item {
+        if self.item_444f0.to_ne() == item {
             (this.cast() + mem::offset_of!(Self, item_444f0) as u64).write(
                 memory, Box::new(Pointer::<PouchItem>::NULLPTR)
             ).unwrap();
             self.update(memory, &this);
         }
-        if self.last_added_item == item {
+        if self.last_added_item.to_ne() == item {
             (this.cast() + mem::offset_of!(Self, last_added_item) as u64).write(
                 memory, Box::new(Pointer::<PouchItem>::NULLPTR)
             ).unwrap();
